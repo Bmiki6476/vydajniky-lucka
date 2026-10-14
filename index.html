@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "75a700b6fa";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9efb940608";</script>
 
 <script>
 // chyba skriptu sa ukáže priamo na stránke (aby ju bolo vidieť aj v mobile a v rámci Google)
@@ -336,7 +336,22 @@ const KROKY_SANIT = [
 ];
 const KROKY_NOVY = ['Kontrola dotiahnutia spojov', 'Nálepky – návod na údržbu a výstraha horúca voda (SK)', 'Funkčná skúška – ohrev, chladenie, tesnosť'];
 const DOVODY = ['zlý tank', 'zlá elektrika', 'zlá elektronika', 'nechladí', 'nehreje', 'tečie', 'poškodený', 'korózia', 'iné'];
-const VYSLEDKY = {opraveny:'opravený', caka:'čaká na diel / servis'};
+const VYSLEDKY = {opraveny:'opravený', caka:'čaká na diel / servis', vyhovuje:'vyhovuje', nevyhovuje:'nevyhovuje'};
+/** Bežné súčiastky výdajníkov – ťuknutím sa pridajú k oprave (ďalšie sa doplnia z toho, čo už niekto zapísal). */
+const DIELY_ZOZNAM = ['Kohútik studená', 'Kohútik teplá', 'Kohútik izbová', 'Termostat chladenia', 'Termostat ohrevu', 'Topné teleso',
+  'Kompresor', 'Ventilátor', 'Chladiaca nádrž', 'Teplá nádrž', 'Ihla / sonda', 'Tesnenie', 'Hadička', 'Vypínač', 'Kontrolka / LED',
+  'Napájací kábel', 'Odkvapkávacia miska', 'Doplnenie chladiva'];
+/** Druh zásahu (interná / chladiarenská oprava, elektrická revízia) je na začiatku popisu ako „[Interná] …“. */
+function rozdelPopis(x){ const p = String(x.popis || ''), m = /^\[([^\]]{1,30})\]\s*/.exec(p); return {druh: m ? m[1] : '', popis: m ? p.slice(m[0].length) : p}; }
+function nazovServisu(x){ const d = rozdelPopis(x).druh, z = TYPY_SERVISU[x.typ] || x.typ; return d ? z + ' – ' + d.toLowerCase() : z; }
+function dielyNavrh(){
+  const pouzite = new Map();
+  for (const x of Object.values(V.ser)) for (const p of String(x.diely || '').split(/;\s*/)) {
+    const n = p.replace(/\s+\d+\s*×$/, '').trim();
+    if (n && !n.includes(',') && !DIELY_ZOZNAM.includes(n)) pouzite.set(n, (pouzite.get(n) || 0) + 1);
+  }
+  return DIELY_ZOZNAM.concat([...pouzite.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]));
+}
 const NEZ = 'NEZ';   // pomocný sklad „Vrátené – sklad nezistený“ z importu SPIN
 // Google pri zverejnení maže všetko za dvoma lomkami (berie to ako komentár) – adresy v kóde preto skladať takto
 const MAPY = 'https:' + '/' + '/www.google.com/maps/search/?api=1&query=';
@@ -651,8 +666,9 @@ function hrowPohyb(p){
     <div class="m">${esc(fmtCas(p.cas))} · ${esc(p.kto)} · ${esc(nazovMiesta(p.z))} → ${esc(nazovMiesta(p.kam))}${p.dl ? ' · DL ' + esc(p.dl) : ''}${p.pozn ? ' · ' + esc(p.pozn) : ''}${p.podpis ? ' · ✍ ' + esc(String(p.podpis).split('|')[0]) : ''}${p.cak ? ' · čaká na odoslanie' : ''}</div></div>`;
 }
 function hrowServis(s){
-  return `<div class="hrow${s.cak ? ' cak' : ''}"><div class="t">${esc(TYPY_SERVISU[s.typ] || s.typ)}${s.vysledok ? ' – ' + esc(VYSLEDKY[s.vysledok] || s.vysledok) : ''} · <span class="mono">${esc(s.vc || s.vyd)}</span></div>
-    <div class="m">${esc(fmtCas(s.cas))} · ${esc(s.kto)}${s.popis ? ' · ' + esc(s.popis) : ''}${s.diely ? ' · diely: ' + esc(s.diely) : ''}${s.cak ? ' · čaká na odoslanie' : ''}</div></div>`;
+  const pp = rozdelPopis(s).popis;
+  return `<div class="hrow${s.cak ? ' cak' : ''}"><div class="t">${esc(nazovServisu(s))}${s.vysledok ? ' – ' + esc(VYSLEDKY[s.vysledok] || s.vysledok) : ''} · <span class="mono">${esc(s.vc || s.vyd)}</span></div>
+    <div class="m">${esc(fmtCas(s.cas))} · ${esc(s.kto)}${pp ? ' · ' + esc(pp) : ''}${s.diely ? ' · súčiastky: ' + esc(s.diely) : ''}${s.cak ? ' · čaká na odoslanie' : ''}</div></div>`;
 }
 const zoznam = (arr, fn, prazdne) => arr.length ? `<div class="list">${arr.map(fn).join('')}</div>` : `<div class="empty-state">${esc(prazdne || 'Nič tu nie je.')}</div>`;
 const kpi = (l, v, cls, act) => `<button class="kpi" type="button" ${act || ''}><div class="l">${esc(l)}</div><div class="v ${cls || ''}">${esc(v)}</div></button>`;
@@ -946,10 +962,12 @@ TABS.domov = {nazov:'Domov',
 };
 
 /* SERVIS – rovnaký postup ako vo Flex Mobility: výdajník → karta + história → Záznam servisu → výber činnosti → popis */
-const SERVIS = {id:'', zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}};
-const CINNOSTI = [['O', 'oprava', 'Oprava'], ['R', 'revizia', 'Revízia'], ['S', 'sanitacia', 'Sanitácia'], ['N', 'navrh', 'Návrh na vyradenie'], ['P', 'porucha', 'Hlásenie poruchy']];
+const SERVIS = {id:'', zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}, firma:'', sprava:'', dielyZoz:[], dielNovy:''};
+// [kód, typ na serveri, názov, druh zásahu]
+const CINNOSTI = [['O', 'oprava', 'Oprava – interná', 'Interná'], ['OC', 'oprava', 'Oprava – chladiarenská', 'Chladiarenská'], ['R', 'revizia', 'Revízia – elektrická', 'Elektrická'],
+  ['S', 'sanitacia', 'Sanitácia'], ['N', 'navrh', 'Návrh na vyradenie'], ['P', 'porucha', 'Hlásenie poruchy']];
 function otvorServis(id){
-  Object.assign(SERVIS, {id, zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}});
+  Object.assign(SERVIS, {id, zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}, firma:'', sprava:'', dielyZoz:[], dielNovy:''});
   C.tab = 'servis'; ulozConf(); zavriModal(); vykresli(); window.scrollTo(0, 0);
 }
 function servisRiadky(v){
@@ -957,12 +975,12 @@ function servisRiadky(v){
   const lok = Object.values(V.ser).filter(x => x.vyd === v.id);
   const cela = SERVIS.histPre === v.id && SERVIS.hist ? SERVIS.hist.servis : [];
   const vid = new Set();
-  for (const x of cela.concat(lok)) { if (vid.has(x.id)) continue; vid.add(x.id); r.push({cas:x.cas, cin:TYPY_SERVISU[x.typ] || x.typ, popis:[VYSLEDKY[x.vysledok] || x.vysledok, x.popis, x.diely ? 'diely: ' + x.diely : ''].filter(Boolean).join(' · '), kto:x.kto, cak:x.cak}); }
+  for (const x of cela.concat(lok)) { if (vid.has(x.id)) continue; vid.add(x.id); r.push({cas:x.cas, cin:nazovServisu(x), popis:[VYSLEDKY[x.vysledok] || x.vysledok, rozdelPopis(x).popis, x.diely ? 'súčiastky: ' + x.diely : ''].filter(Boolean).join(' · '), kto:x.kto, cak:x.cak}); }
   // posledné záznamy zo SPIN (technik vo zostave nie je)
   let spin = {}; try { spin = v.spin ? JSON.parse(v.spin) : {}; } catch(e) {}
   for (const [k, l] of [['sanitacia', 'Sanitácia'], ['oprava', 'Oprava'], ['revizia', 'Revízia']]) {
     const d = v[k]; if (!d || r.some(x => String(x.cas).slice(0, 10) === String(d).slice(0, 10) && x.cin === l)) continue;
-    if (r.some(x => !x.spin && x.cas === d)) continue;
+    if (r.some(x => !x.spin && (x.cas === d || (String(x.cas).slice(0, 10) === String(d).slice(0, 10) && x.cin.startsWith(l))))) continue;
     r.push({cas:d, cin:l, popis:k === 'oprava' && spin.Popis ? spin.Popis.split('\n').pop() : '', kto:'SPIN', spin:true});
   }
   return r.sort((a, b) => String(b.cas).localeCompare(String(a.cas)));
@@ -993,9 +1011,23 @@ TABS.servis = {nazov:'Servis',
         extra = `<div class="seg" style="margin-bottom:8px"><button type="button" data-act="srvVar" data-k="bezna" class="${SERVIS.variant === 'bezna' ? 'on' : ''}">Sanitácia</button><button type="button" data-act="srvVar" data-k="novy" class="${SERVIS.variant === 'novy' ? 'on' : ''}">Nový zabalený – kontrola</button></div>
           ${kroky.map((k, i) => `<label class="checkrow"><input type="checkbox" data-krok="${SERVIS.variant + i}" ${SERVIS.kroky[SERVIS.variant + i] ? 'checked' : ''}><span>${esc(k)}</span></label>`).join('')}
           <button class="btn small" type="button" data-act="srvVsetko" style="margin-top:6px">Označiť všetko</button>`;
-      } else if (SERVIS.kod === 'O') {
+      } else if (c && c[1] === 'oprava') {
+        const zoz = SERVIS.dielyZoz;
         extra = `<div class="seg"><button type="button" data-act="srvVys" data-k="opraveny" class="${SERVIS.vysledok === 'opraveny' ? 'on' : ''}">Opravený</button><button type="button" data-act="srvVys" data-k="caka" class="${SERVIS.vysledok === 'caka' ? 'on' : ''}">Čaká na diel / servis</button></div>
-          <div class="fld" style="margin-top:10px"><label for="srvDiely">Použité diely</label><input type="text" id="srvDiely" data-sp="diely" value="${esc(SERVIS.diely)}" placeholder="napr. termostat, kohútik"></div>`;
+          ${SERVIS.kod === 'OC' ? `<div class="fld"><label for="srvFirma">Kto opravoval (chladiarenská firma / technik)</label><input type="text" id="srvFirma" data-sp="firma" value="${esc(SERVIS.firma)}" autocomplete="off"></div>` : ''}
+          <div class="fld"><label>Vymenené súčiastky</label>
+            ${zoz.length ? `<div class="list">${zoz.map((x, i) => `<div class="item"><div class="main" style="min-width:0;flex:1"><div class="name" style="white-space:normal">${esc(x.n)}</div></div>
+              <button class="btn small" type="button" data-act="srvDielKs" data-i="${i}" data-k="-1" aria-label="Menej">−</button><b style="min-width:3em;text-align:center">${x.ks} ks</b>
+              <button class="btn small" type="button" data-act="srvDielKs" data-i="${i}" data-k="1" aria-label="Viac">+</button>
+              <button class="btn small danger" type="button" data-act="srvDielZmaz" data-i="${i}" aria-label="Odstrániť">✕</button></div>`).join('')}</div>`
+              : '<div class="muted small">Ťuknite na súčiastku nižšie (posúvajte do strany) alebo napíšte inú. Ak sa nič nemenilo, nechajte prázdne.</div>'}
+            <div class="chips" style="margin-top:8px">${dielyNavrh().map(n => `<button class="chip" type="button" data-act="srvDiel" data-k="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>
+            <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="srvDielNovy" data-sp="dielNovy" value="${esc(SERVIS.dielNovy)}" placeholder="iná súčiastka (názov, kód)" autocomplete="off"><button class="btn small" type="button" data-act="srvDielPridaj">Pridať</button></div>
+          </div>`;
+      } else if (SERVIS.kod === 'R') {
+        extra = `<div class="seg"><button type="button" data-act="srvVys" data-k="vyhovuje" class="${SERVIS.vysledok === 'vyhovuje' ? 'on' : ''}">Vyhovuje</button><button type="button" data-act="srvVys" data-k="nevyhovuje" class="${SERVIS.vysledok === 'nevyhovuje' ? 'on' : ''}">Nevyhovuje</button></div>
+          <div class="fld"><label for="srvSprava">Číslo revíznej správy</label><input type="text" id="srvSprava" data-sp="sprava" value="${esc(SERVIS.sprava)}" autocomplete="off"></div>
+          <div class="fld"><label for="srvFirma">Revízny technik</label><input type="text" id="srvFirma" data-sp="firma" value="${esc(SERVIS.firma)}" autocomplete="off"></div>`;
       } else if (SERVIS.kod === 'N') {
         extra = `<div class="row">${DOVODY.map(d => `<button class="chip${SERVIS.dovod === d ? ' on' : ''}" type="button" data-act="srvDovod" data-k="${esc(d)}">${esc(d)}</button>`).join('')}</div>`;
       }
@@ -1004,7 +1036,7 @@ TABS.servis = {nazov:'Servis',
         <table class="vyber"><thead><tr><th style="width:70px">Kód</th><th>Názov činnosti</th></tr></thead><tbody>
         ${kody.map(([k, , l]) => `<tr data-act="srvKod" data-k="${k}" class="${SERVIS.kod === k ? 'on' : ''}"><td><b>${k}</b></td><td>${esc(l)}</td></tr>`).join('')}</tbody></table>
         ${SERVIS.kod ? `<div class="fxbox" style="display:grid;gap:10px">${extra}
-          <div class="fld"><label for="srvPopis">Popis servisu${SERVIS.kod === 'O' || SERVIS.kod === 'P' ? ' (povinný)' : ''}</label><input type="text" id="srvPopis" data-sp="popis" value="${esc(SERVIS.popis)}" placeholder="${SERVIS.kod === 'R' ? 'číslo revíznej správy, technik' : 'čo sa robilo, zistenia'}"></div>
+          <div class="fld"><label for="srvPopis">${SERVIS.kod === 'P' ? 'Čo nefunguje (povinné)' : 'Poznámka'}</label><textarea id="srvPopis" data-sp="popis" rows="2" placeholder="${SERVIS.kod === 'P' ? 'popis poruchy' : c && c[1] === 'oprava' ? 'čo bolo pokazené, čo sa urobilo' : 'zistenia, poznámka'}">${esc(SERVIS.popis)}</textarea></div>
           <button class="btn ok big" type="button" data-act="srvUloz" ${ok ? '' : 'disabled'}>Uložiť – ${esc(c ? c[2] : '')}</button>
           ${SERVIS.kod === 'S' && !ok ? '<div class="note">Tlačidlo sa odomkne po odškrtnutí všetkých krokov.</div>' : ''}</div>` : ''}`;
     }
@@ -1030,13 +1062,22 @@ function servisNajdi(text){
 function servisUloz(){
   const c = CINNOSTI.find(x => x[0] === SERVIS.kod); if (!c) return;
   const popis = SERVIS.popis.trim();
-  if ((SERVIS.kod === 'O' || SERVIS.kod === 'P') && !popis) return toast('Napíšte popis servisu.');
+  const jeOpr = c[1] === 'oprava';
+  if (SERVIS.kod === 'P' && !popis) return toast('Napíšte, čo nefunguje.');
+  if (jeOpr && !popis && !SERVIS.dielyZoz.length) return toast('Napíšte poznámku alebo pridajte vymenenú súčiastku.');
   if (SERVIS.kod === 'N' && !SERVIS.dovod) return toast('Vyberte dôvod.');
-  const vys = SERVIS.kod === 'S' ? (SERVIS.variant === 'novy' ? 'nový – kontrola' : 'kompletná') : SERVIS.kod === 'O' ? SERVIS.vysledok : SERVIS.kod === 'N' ? SERVIS.dovod : '';
-  zmen({t:'servis', vyd:SERVIS.id, typ:c[1], vysledok:vys, popis, diely:SERVIS.kod === 'O' ? SERVIS.diely.trim() : ''});
-  vibr(); toast('Uložené: ' + c[2]);
+  if ((SERVIS.dielNovy || '').trim()) return toast('Súčiastku v políčku ešte pridajte tlačidlom „Pridať“ (alebo políčko vymažte).', 3500);
+  const casti = [];
+  if (SERVIS.sprava.trim()) casti.push('správa č. ' + SERVIS.sprava.trim());
+  if (SERVIS.firma.trim()) casti.push((c[1] === 'revizia' ? 'technik: ' : 'opravoval: ') + SERVIS.firma.trim());
+  if (popis) casti.push(popis);
+  const text = (c[3] ? '[' + c[3] + '] ' : '') + casti.join(' · ');
+  const vys = SERVIS.kod === 'S' ? (SERVIS.variant === 'novy' ? 'nový – kontrola' : 'kompletná') : jeOpr || c[1] === 'revizia' ? SERVIS.vysledok : SERVIS.kod === 'N' ? SERVIS.dovod : '';
+  const diely = jeOpr ? SERVIS.dielyZoz.map(x => x.n + ' ' + x.ks + '×').join('; ') : '';
+  zmen({t:'servis', vyd:SERVIS.id, typ:c[1], vysledok:vys, popis:text, diely});
+  vibr(); toast(c[1] === 'revizia' && vys === 'nevyhovuje' ? 'Uložené – výdajník nevyhovel, zapíšte opravu alebo návrh na vyradenie.' : 'Uložené: ' + c[2], 3500);
   if (SERVIS.zoSanit && SERVIS.kod === 'S') setTimeout(() => ACT.skenSanit(), 400);
-  Object.assign(SERVIS, {zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}});
+  Object.assign(SERVIS, {zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}, firma:'', sprava:'', dielyZoz:[], dielNovy:''});
   TABS.servis.obnov();
 }
 $('#main').addEventListener('input', e => {
@@ -1044,7 +1085,16 @@ $('#main').addEventListener('input', e => {
   if (t.dataset.sp) SERVIS[t.dataset.sp] = t.value;
   if (t.dataset.krok) { SERVIS.kroky[t.dataset.krok] = t.checked; TABS.servis.obnov(); }
 });
-$('#main').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'srvVyd') { e.preventDefault(); servisNajdi(e.target.value); } });
+$('#main').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'srvVyd') { e.preventDefault(); servisNajdi(e.target.value); }
+  if (e.key === 'Enter' && e.target.id === 'srvDielNovy') { e.preventDefault(); ACT.srvDielPridaj(); }
+});
+function pridajDiel(n){
+  n = String(n || '').replace(/[;×]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); if (!n) return;
+  const x = SERVIS.dielyZoz.find(d => d.n.toLowerCase() === n.toLowerCase());
+  if (x) x.ks++; else SERVIS.dielyZoz.push({n, ks:1});
+  TABS.servis.obnov();
+}
 
 /* RÝCHLY VÝDAJ / ZVOZ bez úlohy: zákazník (pri výdaji) alebo sklad (pri zvoze) + skenovanie viacerých kusov */
 function vRychly(typ){
@@ -1209,10 +1259,10 @@ function vKartaVyd(id){
         if (naSklade) a.push(btn('fPohyb', 'Presunúť na iný sklad', '', 'data-typ="presun"'));
         if (r !== 'sofer') {
           a.push(btn('fServis', 'Sanitácia hotová', v.stav === 'spinavy' ? 'ok' : '', 'data-typ="sanitacia"'));
-          a.push(btn('fServis', 'Oprava', '', 'data-typ="oprava"'));
+          a.push(btn('srvZ', 'Oprava', '', 'data-k="O"'));
           a.push(v.navrh ? btn('fServis', 'Zrušiť návrh na vyradenie', '', 'data-typ="zrusNavrh"') : btn('fServis', 'Návrh na vyradenie', 'danger', 'data-typ="navrh"'));
         } else a.push(btn('fServis', 'Nahlásiť poruchu', 'danger', 'data-typ="porucha"'));
-        if (jeRef()) { a.push(btn('fServis', 'Revízia', '', 'data-typ="revizia"')); a.push(btn('fServis', 'Vyradiť z evidencie', 'danger', 'data-typ="vyradenie"')); }
+        if (jeRef()) { a.push(btn('srvZ', 'Revízia elektrická', '', 'data-k="R"')); a.push(btn('fServis', 'Vyradiť z evidencie', 'danger', 'data-typ="vyradenie"')); }
       }
       if (jeRef()) a.push(btn('fInventura', 'Opraviť stav / miesto'));
       if (jeSanit()) a.push(btn('fVyd', 'Upraviť údaje'));
@@ -1643,7 +1693,18 @@ const ACT = {
   servisHladaj(){ const i = $('#srvVyd'); if (i && i.value.trim()) servisNajdi(i.value); },
   skenServis(){ spustiSken({rezim:'servis', text:'Naskenujte QR kód výdajníka', kod: t => { const r = najdiVyd(t); if (r.length === 1) { zastavSken(); otvorServis(r[0].id); return {ok:true}; } return {msg: r.length ? 'Viac zhôd' : 'Nenašiel som: ' + t}; }}); },
   srvZaznam(){ SERVIS.zaznam = true; SERVIS.kod = rola() === 'sofer' ? 'P' : ''; TABS.servis.obnov(); },
-  srvKod(d){ SERVIS.kod = d.k; TABS.servis.obnov(); },
+  srvKod(d){
+    SERVIS.kod = d.k;
+    const c = CINNOSTI.find(x => x[0] === d.k) || [];
+    if (c[1] === 'revizia' && !['vyhovuje', 'nevyhovuje'].includes(SERVIS.vysledok)) SERVIS.vysledok = 'vyhovuje';
+    if (c[1] === 'oprava' && !['opraveny', 'caka'].includes(SERVIS.vysledok)) SERVIS.vysledok = 'opraveny';
+    TABS.servis.obnov();
+  },
+  srvZ(d){ otvorServis(d.id); SERVIS.zaznam = true; ACT.srvKod({k:d.k}); },
+  srvDiel(d){ pridajDiel(d.k); },
+  srvDielPridaj(){ const n = (SERVIS.dielNovy || '').trim(); if (!n) return toast('Napíšte názov súčiastky.'); SERVIS.dielNovy = ''; pridajDiel(n); },
+  srvDielKs(d){ const x = SERVIS.dielyZoz[+d.i]; if (!x) return; x.ks = Math.max(1, x.ks + (+d.k)); TABS.servis.obnov(); },
+  srvDielZmaz(d){ SERVIS.dielyZoz.splice(+d.i, 1); TABS.servis.obnov(); },
   srvVar(d){ SERVIS.variant = d.k; TABS.servis.obnov(); },
   srvVys(d){ SERVIS.vysledok = d.k; TABS.servis.obnov(); },
   srvDovod(d){ SERVIS.dovod = d.k; TABS.servis.obnov(); },
@@ -1973,8 +2034,8 @@ function stiahniVykaz(r, od, po){
     [40,18,11,40,11,8,8,10,10,8,10]);
   list(wb, 'Pohyby', ['Dátum a čas','Druh','Výrobné číslo','Model','Odkiaľ','Kam','Dodací list','Kto','Poznámka','Podpísal'],
     r.pohyby.map(p => [fmtCas(p.cas), TYPY_POHYBU[p.typ] || p.typ, p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, mm(p.kam).nazov, p.dl, p.kto, p.pozn, String(p.podpis || '').split('|')[0]]), [16,22,22,26,34,34,12,18,30,20]);
-  list(wb, 'Servis', ['Dátum a čas','Druh','Výsledok','Výrobné číslo','Model','Kde','Popis','Diely','Kto'],
-    r.servis.map(s => [fmtCas(s.cas), TYPY_SERVISU[s.typ] || s.typ, s.vysledok === 'caka' ? 'čaká na diel' : s.vysledok, s.vc, (V.vyd[s.vyd] || {}).model || '', mm(s.miesto).nazov, s.popis, s.diely, s.kto]), [16,18,16,22,26,30,40,24,18]);
+  list(wb, 'Servis', ['Dátum a čas','Druh','Výsledok','Výrobné číslo','Model','Kde','Poznámka','Vymenené súčiastky','Kto'],
+    r.servis.map(s => [fmtCas(s.cas), nazovServisu(s), VYSLEDKY[s.vysledok] || s.vysledok, s.vc, (V.vyd[s.vyd] || {}).model || '', mm(s.miesto).nazov, rozdelPopis(s).popis, s.diely, s.kto]), [16,24,16,22,26,30,40,30,18]);
   const kto = {};
   for (const s of r.servis) if (s.typ === 'sanitacia') kto[s.kto] = (kto[s.kto] || 0) + 1;
   list(wb, 'Sanitácie po ľuďoch', ['Kto','Sanitácií'], Object.entries(kto).sort((a, b) => b[1] - a[1]), [24,10]);
