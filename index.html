@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#132232">
+<meta name="color-scheme" content="dark">
+<!-- rovnaké písmo na iPhone aj Androide (inak iPhone kreslí písmom Apple a Android písmom Roboto) -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <title>Výdajníky Lucka</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="favicon-32.png">
@@ -12,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9efb940608";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9593906b92";</script>
 
 <script>
 // chyba skriptu sa ukáže priamo na stránke (aby ju bolo vidieť aj v mobile a v rámci Google)
@@ -35,8 +39,8 @@ window.onerror = function (m, s, l, c) {
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 .wrap{max-width:1040px;margin:0 auto;padding:0 16px}
@@ -75,7 +79,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .item .sub{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .qty{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px;color:var(--muted)}
 .item .qty .n{font-weight:650;font-size:16px;color:var(--ink)}
-.mono{font-family:ui-monospace,Consolas,monospace}
+.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
 .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;vertical-align:1px}
 .p-nie{background:var(--chip);color:var(--muted)}
 .p-ok{background:var(--ok-bg);color:var(--ok)}
@@ -213,7 +217,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .fx .fxh{background:linear-gradient(90deg,#14324b,#1d4d70);padding:12px 14px;display:flex;align-items:center;gap:10px}
 .fx .fxh svg{width:22px;height:22px;color:var(--accent);flex:none}
 .fx .fxh .tt{font-weight:650;font-size:16px}
-.fx .fxh .vc{font-family:ui-monospace,Consolas,monospace;font-size:18px;font-weight:700;letter-spacing:.02em}
+.fx .fxh .vc{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:18px;font-weight:700;letter-spacing:.02em}
 .fx .fxh .m{font-size:13.5px;color:#b9cfe0;margin-top:2px}
 .fx .fxs{padding:9px 14px;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--panel2);border-top:1px solid var(--line)}
 .fx .fxbox{padding:12px 14px}
