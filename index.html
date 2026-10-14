@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9593906b92";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "421f20a142";</script>
 
 <script>
 // chyba skriptu sa ukáže priamo na stránke (aby ju bolo vidieť aj v mobile a v rámci Google)
@@ -357,6 +357,7 @@ function dielyNavrh(){
   return DIELY_ZOZNAM.concat([...pouzite.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]));
 }
 const NEZ = 'NEZ';   // pomocný sklad „Vrátené – sklad nezistený“ z importu SPIN
+const NOVE = 'NOVE26';   // pomocný sklad „Nové 2026 – Lúka alebo BA“ (zaradené 2026 bez dokladu)
 // Google pri zverejnení maže všetko za dvoma lomkami (berie to ako komentár) – adresy v kóde preto skladať takto
 const MAPY = 'https:' + '/' + '/www.google.com/maps/search/?api=1&query=';
 
@@ -756,9 +757,9 @@ TABS.prehlad = {nazov:'Prehľad',
     const nez = (V.poMieste[NEZ] || []).length, navrhZak = Object.values(V.vyd).filter(v => v.navrh && v.stav === 'zakaznik').length;
     const porucha = otvoreneUlohy().filter(u => u.typ === 'porucha').length;
     $('#pProblemy').innerHTML = `<div class="list">
-      ${nez ? `<button class="item" type="button" data-act="miesto" data-id="${NEZ}"><div class="main"><div class="name">Vrátené – sklad nezistený</div><div class="sub">Vo SPIN je posledný pohyb vrátenie, ale nevieme kam. Pri inventúre naskenovať a zapísať sklad.</div></div><div class="qty"><div class="n">${nez}</div>ks</div></button>` : ''}
-      ${p.nezname ? `<button class="item" type="button" data-act="filtrStav" data-stav="nezname"><div class="main"><div class="name">Nezistené</div><div class="sub">Výdajníky bez dokladu – nevie sa, kde sú.</div></div><div class="qty"><div class="n">${p.nezname}</div>ks</div></button>` : ''}
-      ${navrhZak ? `<button class="item" type="button" data-act="filtrNavrh"><div class="main"><div class="name">Návrh na vyradenie, ale u zákazníka</div><div class="sub">Treba vymeniť a zviezť.</div></div><div class="qty"><div class="n">${navrhZak}</div>ks</div></button>` : ''}
+      ${nez ? `<button class="item" type="button" data-act="miesto" data-id="${NEZ}"><div class="main"><div class="name">Vrátené – sklad nezistený</div><div class="sub">Vo SPIN je posledný pohyb vrátenie. Sú na Lúke alebo inom sklade VODAXu – pri inventúre naskenovať a zapísať sklad.</div></div><div class="qty"><div class="n">${nez}</div>ks</div></button>` : ''}
+      ${p.nezname ? `<button class="item" type="button" data-act="filtrStav" data-stav="nezname"><div class="main"><div class="name">Nezistené</div><div class="sub">Výdajníky bez dokladu (staré nahrávanie) – môžu byť u zákazníkov.</div></div><div class="qty"><div class="n">${p.nezname}</div>ks</div></button>` : ''}
+      ${navrhZak ? `<button class="item" type="button" data-act="filtrNavrh"><div class="main"><div class="name">Návrh na vyradenie, ale u zákazníka</div><div class="sub">Poznámka zo SPIN alebo z appky – pri najbližšej návšteve skontrolovať.</div></div><div class="qty"><div class="n">${navrhZak}</div>ks</div></button>` : ''}
       ${porucha ? `<button class="item" type="button" data-act="tab" data-tab="ulohy"><div class="main"><div class="name">Otvorené poruchy u zákazníkov</div><div class="sub">Úlohy typu porucha.</div></div><div class="qty"><div class="n">${porucha}</div></div></button>` : ''}
       </div>${!nez && !p.nezname && !navrhZak && !porucha ? '<div class="empty-state">Nič na doriešenie.</div>' : ''}`;
   }
@@ -1599,7 +1600,7 @@ function vImport(){
           <table><tr><th>Výdajníkov</th><td class="r">${s.vyd}</td></tr><tr><th>z toho vyradených</th><td class="r">${s.st.vyradeny || 0}</td></tr>
           ${Object.keys(STAVY).filter(k => k !== 'vyradeny').map(k => `<tr><td>${esc(STAVY[k])}</td><td class="r">${s.st[k] || 0}</td></tr>`).join('')}
           <tr><th>Zákazníkov / odberných miest</th><td class="r">${s.zak}</td></tr><tr><th>Skladov</th><td class="r">${s.skl}</td></tr>
-          <tr><td>zákaznícke (vlastné) výdajníky</td><td class="r">${s.vlastne}</td></tr>${s.dup ? `<tr><td>duplicitné výrobné čísla (zlúčené)</td><td class="r">${s.dup}</td></tr>` : ''}</table>
+          <tr><td>zákaznícke (vlastné) výdajníky</td><td class="r">${s.vlastne}</td></tr><tr><td>z toho predané (aktívne)</td><td class="r">${s.predane || 0}</td></tr>${s.dup ? `<tr><td>duplicitné výrobné čísla (zlúčené)</td><td class="r">${s.dup}</td></tr>` : ''}</table>
           <div class="fld"><label>Popis importu (napr. „stav k 13. 10. 2026“)</label><input type="text" ${fIn('popis', st)}></div>
           <button class="btn pri" type="button" data-act="importPotvrd">Nahrať do databázy</button><button class="btn" type="button" data-act="importVyber">Vybrať iný súbor</button>`; }
       if (st.faza === 'nahrava') return `<div class="empty-state">Nahrávam… ${esc(st.krok)} / ${esc(st.krokov)}<br>Nezatvárajte okno.</div>`;
@@ -1616,8 +1617,11 @@ function spinNaZaznamy(riadky){
   const d = (r, k) => { const v = g(r, k); if (!v) return ''; const x = v instanceof Date ? v : new Date(v); if (isNaN(x)) return ''; if (x.getFullYear() > new Date().getFullYear() + 1) return ''; return x.toISOString(); };
   const den = (r, k) => { const v = d(r, k); return v ? denIso(v) : ''; };
   const miesta = {}, vyd = {}, suhrn = {riadkov:riadky.length - 1, st:{}, vlastne:0, dup:0};
-  miesta[NEZ] = {id:NEZ, typ:'sklad', nazov:'Vrátené – sklad nezistený', pozn:'Vo SPIN je posledný pohyb vrátenie od zákazníka, sklad sa nedá určiť. Pri inventúre zapísať skutočný sklad.'};
+  miesta[NEZ] = {id:NEZ, typ:'sklad', nazov:'Vrátené – sklad nezistený', pozn:'Vo SPIN je posledný pohyb vrátenie od zákazníka. Podľa VODAXu sú na Lúke alebo na inom ich sklade, odkiaľ sa vozia na Lúku na sanitáciu. Pri inventúre zapísať skutočný sklad.'};
+  miesta[NOVE] = {id:NOVE, typ:'sklad', nazov:'Nové 2026 – Lúka alebo BA', pozn:'Výdajníky zaradené v roku 2026 bez dokladu. Podľa VODAXu nové kusy na predaj alebo po revízii čakajúce na umiestnenie, na sklade Lúka alebo v BA. Pri inventúre zapísať skutočný sklad.'};
   const jeSkladOM = n => /vodax/i.test(n);
+  // „predaný / predaj“ v popise alebo poznámke = podľa VODAXu patrí zákazníkovi (nie „nepredaný“, „predný“)
+  const PREDANY = /(^|[^a-záäčďéíĺľňóôŕšťúýž])preda(n|ň|j)/i;
   for (const r of riadky.slice(1)) {
     const vc = s(r, 'VYROBNE_CISLO'); if (!vc) continue;
     const om = s(r, 'OM_FIRMA_INT_KOD'), omN = s(r, 'OM_FIRMA_NAZOV');
@@ -1627,19 +1631,22 @@ function spinNaZaznamy(riadky){
     else if (om && !miesta[om].fakt && s(r, 'FM_FIRMA_NAZOV')) Object.assign(miesta[om], {fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO')});
     const nazov = s(r, 'NAZOV_VYDAJNIKA'), mn = num(g(r, 'DOKLAD_MNOZSTVO')), dokl = d(r, 'DOKLAD_DATUM'), san = d(r, 'POSLEDNA_SANITACIA');
     const vlastnikTxt = s(r, 'VLASTNIK_NAZOV_FIRMY').replace(/^Firma\s*:\s*/i, '').replace(/,?\s*IČO:.*$/i, '').trim();
-    const vlastnik = vlastnikTxt || (/vlastn/i.test(s(r, 'NAZOV_PRODUKTU') + ' ' + nazov) ? 'zákazník' : '');
-    let stav, miestoId = '';
-    if (g(r, 'DATUM_VYRADENIA')) { stav = 'vyradeny'; miestoId = om; }
+    const predany = PREDANY.test(s(r, 'POPIS') + ' ' + s(r, 'POZNAMKA'));
+    const vlastnik = vlastnikTxt || (predany ? (mn === 1 && omN && !jeSkladOM(omN) ? omN : 'predaný (podľa poznámky v SPIN)')
+      : /vlastn/i.test(s(r, 'NAZOV_PRODUKTU') + ' ' + nazov) ? 'zákazník' : '');
+    const rokM = nazov.match(/\b(20\d{2}|19\d{2})\b/), zar = den(r, 'DATUM_ZARADENIA');
+    let stav, miestoId = '', pozn = '';
+    if (g(r, 'DATUM_VYRADENIA')) { stav = 'vyradeny'; miestoId = om; if (mn === 1) pozn = 'Výdaj po vyradení je vo SPIN len oprava obalového konta (VODAX).'; }
     else if (mn === 1) { miestoId = om; stav = miesta[om] && miesta[om].typ === 'sklad' ? 'pripraveny' : 'zakaznik'; }
     else if (mn === -1) { miestoId = NEZ; stav = san && san > dokl ? 'pripraveny' : 'spinavy'; }
-    else stav = 'nezname';
+    else if (zar.slice(0, 4) === '2026') { miestoId = NOVE; stav = 'pripraveny'; }
+    else { stav = 'nezname'; pozn = 'Bez dokladu v SPIN – podľa VODAXu nahraté starým spôsobom, môže byť u zákazníka.'; }
+    if (predany) pozn = (pozn ? pozn + ' ' : '') + 'Predaný – nie je majetkom VODAXu, patrí zákazníkovi.';
+    // návrh na vyradenie zo SPIN je podľa VODAXu len poznámka pre sanitáciu – stav nemení
     const navrh = s(r, 'NAVRH_NA_VYRADENIE');
-    if (navrh && stav !== 'zakaznik' && stav !== 'vyradeny') stav = 'vyradenie';
-    const rokM = nazov.match(/\b(20\d{2}|19\d{2})\b/), zar = den(r, 'DATUM_ZARADENIA');
     const spin = {};
     const pridaj = (l, x) => { if (x !== '' && x != null) spin[l] = x; };
     if (om) pridaj('Posledný doklad', `${s(r, 'DOKLAD_CISLO')} z ${fmtD(den(r, 'DOKLAD_DATUM'))}, ${mn > 0 ? 'výdaj' : 'vrátenie'} ${mn > 0 ? 'do' : 'z'} ${omN}`);
-    pridaj('Obalové saldo', s(r, 'OBALOVE_SALDO'));
     pridaj('Cena na doklade', s(r, 'DOKLAD_CENA') && s(r, 'DOKLAD_CENA') !== '0' ? s(r, 'DOKLAD_CENA') : '');
     pridaj('Cenník 40', s(r, 'CENNIK_40_CENA'));
     pridaj('Typ', s(r, 'NAZOV_TYPU'));
@@ -1651,10 +1658,11 @@ function spinNaZaznamy(riadky){
     if (vyd[id]) suhrn.dup++;
     vyd[id] = {vc:id, ev:(vc.match(/(\d{1,5}\/\d{2,4})\s*$/) || [])[1] || '', nazov, model:nazov.replace(/^V[ýy]dajn[íi]k\s*/i, ''), rok:rokM ? rokM[1] : zar.slice(0, 4),
       vlastnik, obstCena:s(r, 'OBSTARAVACIA_CENA'), zaradenie:zar, vyradenie:den(r, 'DATUM_VYRADENIA'), stav, miesto:miestoId, odKedy:dokl,
-      sanitacia:san, oprava:d(r, 'POSEDNA_OPRAVA') || d(r, 'POSLEDNA_OPRAVA'), revizia:d(r, 'POSLEDNA_REVIZIA'), navrh, pozn:'', spin:JSON.stringify(spin)};
+      sanitacia:san, oprava:d(r, 'POSEDNA_OPRAVA') || d(r, 'POSLEDNA_OPRAVA'), revizia:d(r, 'POSLEDNA_REVIZIA'), navrh, pozn, spin:JSON.stringify(spin), predany};
   }
   const v = Object.values(vyd), m = Object.values(miesta);
-  for (const x of v) { suhrn.st[x.stav] = (suhrn.st[x.stav] || 0) + 1; if (x.vlastnik) suhrn.vlastne++; }
+  suhrn.predane = 0;
+  for (const x of v) { suhrn.st[x.stav] = (suhrn.st[x.stav] || 0) + 1; if (x.vlastnik) suhrn.vlastne++; if (x.predany && x.stav !== 'vyradeny') suhrn.predane++; delete x.predany; }
   Object.assign(suhrn, {vyd:v.length, zak:m.filter(x => x.typ === 'zakaznik').length, skl:m.filter(x => x.typ === 'sklad').length});
   return {vydajniky:v, miesta:m, suhrn};
 }
