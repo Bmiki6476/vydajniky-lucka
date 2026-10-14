@@ -1,0 +1,1996 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#132232">
+<title>Výdajníky Lucka</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Výdajníky">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "3886a200a5";</script>
+
+<script>
+// chyba skriptu sa ukáže priamo na stránke (aby ju bolo vidieť aj v mobile a v rámci Google)
+window.onerror = function (m, s, l, c) {
+  var d = document.createElement('pre');
+  d.textContent = 'Chyba aplikácie: ' + m + ' (riadok ' + l + ':' + c + ')';
+  d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999;margin:0;padding:10px;background:#fae3e1;color:#b3261e;font-size:13px;white-space:pre-wrap';
+  (document.body || document.documentElement).appendChild(d);
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" defer></script>
+<style>
+:root{
+  --bg:#0f1b27; --panel:#172738; --panel2:#1c3044; --ink:#e8f0f7; --muted:#8ea4b8; --line:#284057;
+  --accent:#2aa8e6; --accent-ink:#04131f; --accent-soft:#143a54;
+  --ok:#5fd08f; --ok-bg:#163526; --warn:#f2b45a; --warn-bg:#3a2a12; --bad:#ff8a80; --bad-bg:#3d1c1a;
+  --info:#7cc4ff; --info-bg:#15314a; --chip:#203549; --shadow:0 6px 18px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:0;z-index:20;background:#132232;border-bottom:2px solid var(--accent)}
+header.top .wrap{padding-top:10px;padding-bottom:10px}
+.titlerow{display:flex;align-items:center;gap:8px}
+.titlerow h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--chip);border:0;max-width:38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{border:0;background:var(--accent);color:var(--accent-ink);border-radius:10px;height:36px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;flex:none}
+.iconbtn svg{width:20px;height:20px}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap;border:0;background:none;padding:0;color:var(--muted)}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.sync.cak i{background:var(--warn)} .sync.off i{background:var(--bad)}
+main{padding-top:12px}
+.filters{display:grid;gap:8px;margin-bottom:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+select{max-width:100%;text-overflow:ellipsis}
+select,input[type=text],input[type=search],input[type=number],input[type=date],input[type=tel],input[type=email],input[type=password],textarea{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
+textarea{min-height:70px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 12px;font-size:13px;white-space:nowrap}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip b{font-weight:600;opacity:.75;margin-left:4px}
+.group{margin:16px 0 8px;display:flex;align-items:baseline;gap:8px}
+.group h2{font-size:14px;margin:0;font-weight:650;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.group span{font-size:13px;color:var(--muted)}
+.list{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;width:100%;box-shadow:var(--shadow)}
+.item.cak{border-style:dashed}
+.item .main{flex:1;min-width:0}
+.item .name{font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .sub{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .qty{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px;color:var(--muted)}
+.item .qty .n{font-weight:650;font-size:16px;color:var(--ink)}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;vertical-align:1px}
+.p-nie{background:var(--chip);color:var(--muted)}
+.p-ok{background:var(--ok-bg);color:var(--ok)}
+.p-bad{background:var(--bad-bg);color:var(--bad)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}
+.p-info{background:var(--info-bg);color:var(--info)}
+.p-acc{background:var(--accent-soft);color:var(--accent)}
+.empty-state{text-align:center;color:var(--muted);padding:30px 10px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 14px;min-height:44px;font-weight:560;text-align:center}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--bad)}
+.btn.small{min-height:36px;padding:6px 10px;font-size:13.5px}
+.btn.big{min-height:56px;font-size:16px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn.big svg{width:24px;height:24px}
+.btn:disabled{opacity:.5}
+.more{width:100%;margin-top:10px;border-style:dashed}
+nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.bottom .wrap{display:flex;max-width:640px}
+nav.bottom button{flex:1;border:0;background:none;padding:10px 4px 12px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+nav.bottom button.on{color:var(--accent);font-weight:650}
+nav.bottom svg{width:22px;height:22px}
+nav.bottom .badge{position:absolute;top:5px;left:calc(50% + 6px);background:var(--bad);color:#fff;border-radius:99px;font-size:10.5px;font-weight:700;padding:0 5px;min-width:17px;line-height:17px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 10px;font-size:15px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+@media (min-width:640px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:900px){.kpis.k6{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;width:100%}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .v.bad{color:var(--bad)} .kpi .v.warn{color:var(--warn)} .kpi .v.ok{color:var(--ok)} .kpi .v.info{color:var(--info)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right;white-space:nowrap}
+tr.sum td{font-weight:650}
+.tscroll{overflow-x:auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.note{font-size:12.5px;color:var(--muted)}
+.actions{display:grid;gap:8px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:520px){.actions.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:14px}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.fld{min-width:0}
+.fld label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:560}
+.checkrow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.checkrow:last-child{border-bottom:0}
+.checkrow input{width:24px;height:24px;margin:0;accent-color:var(--ok);flex:none}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--panel);padding:9px 6px;font-size:13.5px;min-height:42px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.stavbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.stavbox .kde{font-weight:600}
+.hist{display:grid;gap:6px}
+.hrow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13.5px}
+.hrow.cak{border-style:dashed}
+.hrow .t{font-weight:600}
+.hrow .m{font-size:12px;color:var(--muted);margin-top:2px}
+details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.okbox{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:10px 12px;font-size:13.5px}
+/* modal */
+.modal{position:fixed;inset:0;z-index:50;display:none;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center}
+.modal.on{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:94vh;overflow-y:auto;overflow-x:hidden;border-radius:18px 18px 0 0;padding:0 0 calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.modal{align-items:center}.sheet{border-radius:18px;max-height:90vh}}
+.sheet .hd{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:10px;align-items:flex-start;z-index:2}
+.sheet .hd h2{font-size:16px;margin:0;line-height:1.3;overflow-wrap:anywhere}
+.sheet .hd .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.sheet .hd .x,.sheet .hd .back{border:0;background:var(--chip);border-radius:99px;width:34px;height:34px;flex:none;font-size:18px;line-height:1}
+.sheet .hd .x{margin-left:auto}
+.sheet .hd .tt{min-width:0;flex:1}
+.sheet .bd{padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.scan{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column}
+.scan.on{display:flex}
+.scan video{flex:1;width:100%;object-fit:cover;min-height:0}
+.scan .ciel{position:absolute;left:50%;top:42%;width:min(64vw,300px);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:18px;pointer-events:none}
+.scan .bar2{padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:#111;color:#fff;display:grid;gap:10px}
+.scan .bar2 .msg{font-size:15px;min-height:1.4em}
+.scan .bar2 .row{flex-wrap:nowrap}
+.scan .bar2 input{background:#222;border-color:#444;color:#fff}
+/* režim fotky: Google aplikáciu spúšťa v rámčeku bez povolenia kamery – skenuje sa cez fotoaparát telefónu */
+.scan.foto-rezim video,.scan.foto-rezim .ciel{display:none}
+.scan.foto-rezim{justify-content:flex-end;background:#0b1520}
+.scan.foto-rezim .bar2{padding-top:24px}
+.scan.foto-rezim #scanFoto{min-height:64px;font-size:17px;background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.scan.foto-rezim #scanStop{background:#1c2b3a;border-color:#2a3f53;color:#e8f0f7}
+.scan .info{display:none;color:#b9cfe0;font-size:14px;line-height:1.5;padding:0 18px 8px}
+.scan.foto-rezim .info{display:block}
+.foto{position:fixed;inset:0;z-index:75;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;padding:16px}
+.foto.on{display:flex}
+.foto img{max-width:100%;max-height:100%;border-radius:8px}
+.login{position:fixed;inset:0;z-index:80;background:var(--bg);display:none;align-items:center;justify-content:center;padding:16px}
+.login.on{display:flex}
+.login .card{width:100%;max-width:400px;display:grid;gap:12px;margin:0}
+.login h2{margin:0;font-size:20px}
+.err{color:var(--bad);font-size:13.5px;min-height:1.2em}
+.qr{display:flex;justify-content:center;padding:10px;background:#fff;border-radius:10px;margin-top:10px}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+#tlac{display:none}
+@media print{
+  @page{size:62mm 36mm;margin:0}
+  body{background:#fff;padding:0}
+  body>*:not(#tlac){display:none!important}
+  #tlac{display:block}
+  #tlac img{display:block;width:62mm;height:36mm;page-break-after:always;break-after:page}
+}
+.stitky{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.stitky img{width:100%;border-radius:6px;background:#fff;border:1px solid var(--line)}
+.podpis-plocha{width:100%;height:220px;background:#fff;border-radius:12px;touch-action:none;display:block;border:2px dashed var(--line)}
+/* Flex štýl: značka, dlaždice, karta výdajníka */
+.brand{display:flex;align-items:center;gap:8px}
+.brand svg{width:24px;height:24px;color:var(--accent);flex:none}
+.brand b{color:var(--accent);font-weight:700}
+.hello{margin:6px 0 14px}
+.hello h2{margin:0;font-size:21px;font-weight:650}
+.hello .s{color:var(--muted);font-size:13.5px;margin-top:2px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:640px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tile{position:relative;background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:16px 14px;min-height:116px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:10px;text-align:left;box-shadow:var(--shadow)}
+.tile:active{transform:scale(.98)}
+.tile svg{width:36px;height:36px;color:var(--accent)}
+.tile .t{font-weight:650;font-size:15.5px;line-height:1.25}
+.tile .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.tile .b2{position:absolute;top:10px;right:10px;background:var(--bad);color:#fff;border-radius:99px;font-size:12px;font-weight:700;padding:1px 9px}
+.fx{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)}
+.fx .fxh{background:linear-gradient(90deg,#14324b,#1d4d70);padding:12px 14px;display:flex;align-items:center;gap:10px}
+.fx .fxh svg{width:22px;height:22px;color:var(--accent);flex:none}
+.fx .fxh .tt{font-weight:650;font-size:16px}
+.fx .fxh .vc{font-family:ui-monospace,Consolas,monospace;font-size:18px;font-weight:700;letter-spacing:.02em}
+.fx .fxh .m{font-size:13.5px;color:#b9cfe0;margin-top:2px}
+.fx .fxs{padding:9px 14px;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--panel2);border-top:1px solid var(--line)}
+.fx .fxbox{padding:12px 14px}
+.fx dl.dl{padding:12px 14px;margin:0;grid-template-columns:minmax(110px,auto) minmax(0,1fr)}
+.fx dl.dl dt{color:var(--muted)}
+.fx table{font-size:13.5px}
+.fx th{background:var(--panel2)}
+.fx th,.fx td{padding:8px 10px}
+.vyber tr[data-k]{cursor:pointer}
+.vyber tr.on td{background:var(--accent);color:var(--accent-ink);font-weight:650}
+.vinput{display:flex;gap:8px}
+.vinput input{flex:1;min-width:0}
+.vinput .btn{flex:none}
+.rychly-list{display:grid;gap:6px}
+@media (max-width:440px){.iconbtn span,.sync span{display:none}.titlerow h1{font-size:15.5px}.who{max-width:34%}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="titlerow">
+      <h1 class="brand"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1" opacity=".75"/><rect x="17" y="3" width="4" height="5" rx="1" opacity=".5"/><rect x="3" y="10" width="5" height="5" rx="1" opacity=".75"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="3" y="17" width="5" height="4" rx="1" opacity=".5"/></svg><span>Výdajníky <b>Lucka</b></span></h1>
+      <button class="sync" id="syncBtn" type="button" data-act="tab" data-tab="viac"><i></i><span id="syncTxt">…</span></button>
+      <button class="iconbtn" type="button" data-act="skenNajdi" aria-label="Skenovať QR kód"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/></svg><span>Skenovať</span></button>
+      <button class="who" id="whoBtn" type="button" data-act="tab" data-tab="viac"></button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<nav class="bottom"><div class="wrap" id="nav"></div></nav>
+
+<div class="login" id="login">
+  <form class="card" id="loginForm" autocomplete="on">
+    <h2>Výdajníky Lucka</h2>
+    <p class="note" style="margin:0">Evidencia výdajníkov – výdaj a zvoz u zákazníkov, sanitácie, opravy. Prihláste sa svojím kódom.</p>
+    <div class="fld"><label for="lPin">Váš kód</label><input type="password" id="lPin" inputmode="numeric" autocomplete="current-password" required></div>
+    <div class="err" id="lErr"></div>
+    <button class="btn pri" type="submit" id="lBtn">Prihlásiť</button>
+  </form>
+</div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="scan" id="scan">
+  <video id="scanVideo" playsinline muted></video><div class="ciel"></div>
+  <div class="bar2">
+    <div class="info">Ťuknite na <b>Odfotiť kód</b> – otvorí sa fotoaparát. Odfoťte QR štítok zblízka (aby bol cez pol obrazovky) a potvrďte fotku.</div>
+    <div class="msg" id="scanMsg">Namierte na QR kód na výdajníku</div>
+    <div class="row"><input type="text" id="scanRucne" placeholder="alebo napíšte výrobné / evidenčné číslo" autocomplete="off"><button class="btn small" id="scanOk" type="button">OK</button></div>
+    <div class="row"><button class="btn small" id="scanFoto" type="button" style="flex:1">Odfotiť kód</button><button class="btn small pri" id="scanStop" type="button" style="flex:1">Hotovo</button></div>
+  </div>
+</div>
+<div class="foto" id="foto"><img id="fotoImg" alt="Fotka výdajníka"></div>
+<input type="file" id="fotoVstup" accept="image/*" capture="environment" hidden>
+<input type="file" id="skenVstup" accept="image/*" capture="environment" hidden>
+<input type="file" id="importVstup" accept=".xlsx,.xls,.xlsm" hidden>
+<div class="toast" id="toast"></div>
+<div id="tlac"></div>
+
+<script>
+'use strict';
+const K_CONF = 'vyd-lucka-conf-v1', K_CACHE = 'vyd-lucka-cache-v1', K_OUT = 'vyd-lucka-out-v1';
+
+/* ---------- prechody stavov – rovnaké ako v Code.gs (dev/kontrola.js) ---------- */
+// SPOLOCNE-ZACIATOK
+const STAVY = {
+  zakaznik:   'U zákazníka',
+  pripraveny: 'Pripravený na sklade',
+  spinavy:    'Čaká na sanitáciu',
+  oprava:     'V oprave',
+  vyradenie:  'Na vyradenie',
+  vyradeny:   'Vyradený',
+  nezname:    'Nezistené'
+};
+const SKLADOVE = ['pripraveny', 'spinavy', 'oprava', 'vyradenie'];
+/** Zmení výdajník podľa pohybu alebo servisu. v = objekt výdajníka, op = operácia. Vráti krátky popis zmeny. */
+function prechod(v, op) {
+  const cas = op.cas, bol = v.stav;
+  if (op.t === 'pohyb') {
+    if (op.typ === 'vydaj') { v.stav = 'zakaznik'; v.miesto = op.kam; v.odKedy = cas; }
+    else if (op.typ === 'prijem') { v.stav = 'spinavy'; v.miesto = op.kam; v.odKedy = cas; }
+    else if (op.typ === 'presun') { v.miesto = op.kam; v.odKedy = cas; if (SKLADOVE.indexOf(v.stav) < 0) v.stav = op.stav || 'spinavy'; }
+    else if (op.typ === 'inventura') { v.stav = op.stav || v.stav; v.miesto = op.kam || v.miesto; v.odKedy = cas; }
+    return op.typ + ': ' + (bol || '') + ' → ' + v.stav;
+  }
+  if (op.t === 'servis') {
+    if (op.typ === 'sanitacia') { v.sanitacia = cas; if (v.stav !== 'zakaznik') v.stav = 'pripraveny'; }
+    else if (op.typ === 'oprava') {
+      v.oprava = cas;
+      if (op.vysledok === 'caka') { if (v.stav !== 'zakaznik') v.stav = 'oprava'; }
+      else if (v.stav === 'oprava') v.stav = 'spinavy';
+    }
+    else if (op.typ === 'revizia') v.revizia = cas;
+    else if (op.typ === 'navrh') { v.navrh = op.vysledok || op.popis || 'návrh'; if (v.stav !== 'zakaznik') v.stav = 'vyradenie'; }
+    else if (op.typ === 'zrusNavrh') { v.navrh = ''; if (v.stav === 'vyradenie') v.stav = 'spinavy'; }
+    else if (op.typ === 'vyradenie') { v.stav = 'vyradeny'; v.vyradenie = String(cas).slice(0, 10); }
+    return op.typ + (op.vysledok ? ' (' + op.vysledok + ')' : '');
+  }
+  return '';
+}
+// SPOLOCNE-KONIEC
+
+const ROLY = {sofer:'Šofér', sanitar:'Sanitácia / servis', referentka:'Referentka', admin:'Správca'};
+const PILL = {zakaznik:'p-info', pripraveny:'p-ok', spinavy:'p-warn', oprava:'p-bad', vyradenie:'p-bad', vyradeny:'p-nie', nezname:'p-nie'};
+const TYPY_POHYBU = {vydaj:'Výdaj zákazníkovi', prijem:'Prevzatie od zákazníka', presun:'Presun', inventura:'Oprava stavu / inventúra'};
+const TYPY_SERVISU = {sanitacia:'Sanitácia', oprava:'Oprava', revizia:'Revízia', navrh:'Návrh na vyradenie', zrusNavrh:'Zrušený návrh na vyradenie', vyradenie:'Vyradenie', porucha:'Hlásenie poruchy'};
+const TYPY_ULOH = {dovoz:'Doviezť', odvoz:'Zviezť', vymena:'Vymeniť', porucha:'Porucha u zákazníka', ine:'Iné'};
+const KROKY_SANIT = [
+  'Rozobraté diely vyčistené (Aciplusfoam), taniere a misky vydrhnuté',
+  'Prečistený výpust ohrievača',
+  'Odkameňovanie – Pascal s ohrevom, prepustené oboma ventilmi',
+  'Oplach čistou vodou',
+  'Dezinfekcia – Divosan Forte za studena, potom oplach',
+  'Senzorická kontrola – bez pachu a chuti roztoku',
+  'Skompletizovaný, filter na záver',
+  'Funkčná skúška cez prúdový chránič – ohrev, chladenie, tesnosť',
+  'Zvonka vydezinfikovaný liehom, zabalený do fólie'
+];
+const KROKY_NOVY = ['Kontrola dotiahnutia spojov', 'Nálepky – návod na údržbu a výstraha horúca voda (SK)', 'Funkčná skúška – ohrev, chladenie, tesnosť'];
+const DOVODY = ['zlý tank', 'zlá elektrika', 'zlá elektronika', 'nechladí', 'nehreje', 'tečie', 'poškodený', 'korózia', 'iné'];
+const VYSLEDKY = {opraveny:'opravený', caka:'čaká na diel / servis'};
+const NEZ = 'NEZ';   // pomocný sklad „Vrátené – sklad nezistený“ z importu SPIN
+// Google pri zverejnení maže všetko za dvoma lomkami (berie to ako komentár) – adresy v kóde preto skladať takto
+const MAPY = 'https:' + '/' + '/www.google.com/maps/search/?api=1&query=';
+
+/* ---------- pomocné ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+const normVc = s => String(s ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+const num = v => { if (v === null || v === undefined || v === '') return null; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isFinite(n) ? n : null; };
+const fmtE = n => n == null || n === '' ? '–' : Number(n).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const fmtD = s => { if (!s) return ''; const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return String(s); const d = new Date(s); if (String(s).length > 10 && !isNaN(d)) return d.toLocaleDateString('sk-SK'); return `${+m[3]}. ${+m[2]}. ${m[1]}`; };
+const fmtCas = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleString('sk-SK',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}); };
+const denIso = d => { const x = d ? new Date(d) : new Date(); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); };
+const dnes = () => denIso();
+const jeDnes = iso => iso && denIso(iso) === dnes();
+const mesiacov = iso => { if (!iso) return null; const d = new Date(iso); if (isNaN(d)) return null; return (Date.now() - d) / (30.44 * 864e5); };
+const vek = iso => { const m = mesiacov(iso); if (m == null) return ''; if (m < 1) { const d = Math.floor(m * 30.44); return d <= 0 ? 'dnes' : d === 1 ? 'včera' : 'pred ' + d + ' dňami'; } if (m < 24) return 'pred ' + Math.floor(m) + ' mes.'; return 'pred ' + Math.floor(m / 12) + ' r.'; };
+const noveId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const sk = (n, a, b, c) => n === 1 ? a : n >= 2 && n <= 4 ? b : c;
+function toast(t, ms){ const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), ms || 2600); }
+function nacitajLS(k, def){ try { const v = JSON.parse(localStorage.getItem(k)); return v ?? def; } catch(e) { return def; } }
+let lsChyba = false;
+function ulozLS(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) { if (!lsChyba) toast('Mobil neukladá údaje lokálne – nezatvárajte stránku, kým sa všetko neodošle.', 4000); lsChyba = true; } }
+const vibr = ms => { if (navigator.vibrate) navigator.vibrate(ms || 60); };
+const IKONY = {
+  prehlad:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  vydajniky:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 7h4M9 12h2M13 12h2"/>',
+  miesta:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  ulohy:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
+  sanitacia:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  hladaj:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  viac:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  qr:'<path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/>',
+  domov:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  servis:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+  vydaj:'<path d="M1 6h13v11H1z"/><path d="M14 10h4l3 3v4h-7"/><circle cx="5.5" cy="18.5" r="1.8"/><circle cx="17.5" cy="18.5" r="1.8"/>',
+  zvoz:'<path d="M20 12H5M11 5l-7 7 7 7"/>',
+  nastav:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
+};
+const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IKONY[k]}</svg>`;
+
+/* ---------- server ---------- */
+function api(fn, ...args){
+  // samostatná webová appka (GitHub Pages) volá server cez POST; v appke na Googli ide cez google.script.run
+  if (window.API_URL) {
+    const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 150000);
+    return fetch(API_URL, {method:'POST', body:JSON.stringify({fn, args}), redirect:'follow', signal:ctrl.signal})
+      .catch(e => { throw new Error(e && e.name === 'AbortError' ? 'Spojenie timed out' : 'NetworkError: ' + (e && e.message || 'bez spojenia')); })
+      .then(r => { if (!r.ok) throw new Error('NetworkError: server ' + r.status); return r.json().catch(() => { throw new Error('NetworkError: server odpovedal nezrozumiteľne'); }); })
+      .then(o => { if (o.error) throw new Error(o.error); return o.result; })
+      .finally(() => clearTimeout(t));
+  }
+  return new Promise((ok, ko) => {
+    if (!window.google || !google.script || !google.script.run) { ko(new Error('Toto je len súbor z disku – aplikácia funguje až cez odkaz z Google (…/exec) po nasadení podľa NAVOD.md.')); return; }
+    google.script.run.withSuccessHandler(ok).withFailureHandler(e => ko(e instanceof Error ? e : new Error(String((e && e.message) || e))))[fn](...args);
+  });
+}
+const jeChybaKodu = e => /Nesprávny kód/.test(e && e.message || '');
+const jeSiet = e => /Failed|NetworkError|network|offline|timed out|Load failed/i.test(e && e.message || '');
+
+/* ---------- stav ---------- */
+// C = prihlásenie a filtre (tento mobil), SRV = posledný stav zo servera, OUT = zmeny čakajúce na odoslanie, V = SRV + OUT
+let C = Object.assign({pin:'', meno:'', rola:'', sklad:'', tab:'', f:{}}, nacitajLS(K_CONF, {}));
+C.f = Object.assign({vq:'', vstav:'akt', vmiesto:'', vvlast:'', mq:'', mtyp:'zakaznik', ufil:'otvorene', upre:'', sSklad:'', hq:''}, C.f || {});
+let SRV = zCache(nacitajLS(K_CACHE, null));
+let OUT = nacitajLS(K_OUT, []);
+let POTVRD = [];   // odoslané zmeny, ktoré ešte neprišli späť cez zmeny()
+let V = null;
+let poslednaSync = null, online = null;
+const ulozConf = () => ulozLS(K_CONF, C);
+const ulozOut = () => ulozLS(K_OUT, OUT);
+const rola = () => SRV ? SRV.meta.rola : C.rola;
+const jeRef = () => ['referentka','admin'].includes(rola());
+const jeAdmin = () => rola() === 'admin';
+const jeSanit = () => ['sanitar','referentka','admin'].includes(rola());
+
+function zPola(a, p){ const o = {}; p.forEach((k, i) => { o[k] = a[i] ?? ''; }); return o; }
+function mapaZPoli(rows, p){ const m = {}; for (const r of rows || []) { const o = zPola(r, p); m[o.id] = o; } return m; }
+function naMapu(arr, k){ const o = {}; for (const r of arr || []) o[r[k]] = r; return o; }
+function zCache(c){
+  if (!c || !c.polia) return null;
+  return {rev:c.rev, meta:c.meta, polia:c.polia, poliaMiest:c.poliaMiest, ludia:c.ludia || [],
+    vyd:mapaZPoli(c.vyd, c.polia), mie:mapaZPoli(c.mie, c.poliaMiest), poh:naMapu(c.poh,'id'), ser:naMapu(c.ser,'id'), ul:naMapu(c.ul,'id')};
+}
+function ulozCache(){
+  if (!SRV) { ulozLS(K_CACHE, null); return; }
+  const p = SRV.polia, pm = SRV.poliaMiest;
+  const balik = bezSpin => JSON.stringify({rev:SRV.rev, meta:SRV.meta, polia:p, poliaMiest:pm, ludia:SRV.ludia,
+    vyd:Object.values(SRV.vyd).map(o => p.map(k => bezSpin && k === 'spin' ? '' : o[k] ?? '')), mie:Object.values(SRV.mie).map(o => pm.map(k => o[k] ?? '')),
+    poh:Object.values(SRV.poh), ser:Object.values(SRV.ser), ul:Object.values(SRV.ul)});
+  try { localStorage.setItem(K_CACHE, balik(false)); return; } catch(e) {}
+  try { localStorage.setItem(K_CACHE, balik(true)); return; } catch(e) {}
+  try { localStorage.removeItem(K_CACHE); } catch(e) {}
+}
+
+/** Zmena = operácia; rovnako ju aplikuje mobil (hneď) aj server (po odoslaní). */
+function aplikuj(v, op){
+  if (op.t === 'pohyb' || op.t === 'servis') {
+    const s = v.vyd[op.vyd]; if (!s) return;
+    const x = Object.assign({}, s), z = x.miesto;
+    prechod(x, op); x.cak = true; v.vyd[x.id] = x;
+    if (op.t === 'pohyb') v.poh[op.id] = {id:op.id, cas:op.cas, vyd:x.id, vc:x.vc, typ:op.typ, z, kam:x.miesto, stavPo:x.stav, dl:op.dl || '', pozn:op.pozn || '', uloha:op.uloha || '', kto:C.meno, cak:true};
+    else v.ser[op.id] = {id:op.id, cas:op.cas, vyd:x.id, vc:x.vc, typ:op.typ, vysledok:op.vysledok || '', popis:op.popis || '', diely:op.diely || '', miesto:x.miesto, kto:C.meno, cak:true};
+  } else if (op.t === 'vydajnik') {
+    const s = v.vyd[op.vyd];
+    if (!s && !op.novy) return;
+    const x = Object.assign(s ? Object.assign({}, s) : {id:op.vyd, vc:op.vyd, stav:op.stav || 'spinavy', miesto:op.kam || '', odKedy:op.cas, zaradenie:op.cas.slice(0,10), fotky:''}, op.patch || {});
+    x.cak = true; v.vyd[x.id] = x;
+  } else if (op.t === 'miesto') {
+    const s = v.mie[op.id];
+    v.mie[op.id] = Object.assign(s ? Object.assign({}, s) : {id:op.id, typ:'zakaznik'}, op.patch || {}, {cak:true});
+  } else if (op.t === 'podpis') {
+    const text = (op.meno || 'zákazník') + '||' + op.cas;
+    for (const id of op.pohyby || []) if (v.poh[id]) v.poh[id] = Object.assign({}, v.poh[id], {podpis:text});
+    if (op.uloha && v.ul[op.uloha]) v.ul[op.uloha] = Object.assign({}, v.ul[op.uloha], {podpis:text, cak:true});
+  } else if (op.t === 'uloha') {
+    const s = v.ul[op.id], p = Object.assign({}, op.patch || {});
+    const u = Object.assign(s ? Object.assign({}, s) : {id:op.id, stav:'nova', zadal:C.meno, vytvorene:op.cas}, p, {cak:true});
+    if ('hotovo' in p) { if (p.hotovo) { u.stav = 'hotova'; u.hotovo = op.cas; u.hotovoKto = C.meno; } else { u.stav = 'nova'; u.hotovo = ''; } }
+    v.ul[op.id] = u;
+  }
+}
+function obnovView(){
+  if (!SRV) { V = null; return; }
+  V = {vyd:Object.assign({}, SRV.vyd), mie:Object.assign({}, SRV.mie), poh:Object.assign({}, SRV.poh), ser:Object.assign({}, SRV.ser), ul:Object.assign({}, SRV.ul)};
+  for (const op of POTVRD) if (op.rv > SRV.rev) aplikuj(V, op);
+  for (const op of OUT) aplikuj(V, op);
+  V.poMieste = {}; V.pocty = {};
+  for (const v of Object.values(V.vyd)) {
+    V.pocty[v.stav] = (V.pocty[v.stav] || 0) + 1;
+    if (v.stav !== 'vyradeny' && v.miesto) (V.poMieste[v.miesto] = V.poMieste[v.miesto] || []).push(v);
+  }
+}
+/** Viac zmien naraz (hromadný presun) – jedno uloženie a jedno prekreslenie. */
+function zmenViac(ops){
+  const cas = new Date().toISOString();
+  for (const op of ops) { op.id = op.id || noveId(op.t[0].toUpperCase()); op.cas = cas; OUT.push(op); }
+  ulozOut(); obnovView(); obnovVsetko();
+  clearTimeout(zmen.t); zmen.t = setTimeout(sync, 700);
+}
+/** Pridá zmenu do fronty, hneď ju ukáže a naplánuje odoslanie. */
+function zmen(op){
+  op.id = op.id || noveId(op.t[0].toUpperCase());
+  op.cas = new Date().toISOString();
+  OUT.push(op);
+  ulozOut(); obnovView(); obnovVsetko();
+  clearTimeout(zmen.t); zmen.t = setTimeout(sync, 700);
+}
+
+/* ---------- synchronizácia ---------- */
+function prijmi(r, polia){
+  for (const a of r.vydajniky || []) { const o = zPola(a, polia || SRV.polia); SRV.vyd[o.id] = o; }
+  for (const a of r.miesta || []) { const o = zPola(a, SRV.poliaMiest); SRV.mie[o.id] = o; }
+  for (const x of r.pohyby || []) SRV.poh[x.id] = x;
+  for (const x of r.servis || []) SRV.ser[x.id] = x;
+  for (const x of r.ulohy || []) SRV.ul[x.id] = x;
+  if (r.ludia) SRV.ludia = r.ludia;
+  // v mobile držíme len posledné týždne pohybov a servisu
+  const hr = new Date(Date.now() - 35 * 864e5).toISOString();
+  for (const k of ['poh','ser']) for (const [id, x] of Object.entries(SRV[k])) if (x.cas < hr) delete SRV[k][id];
+}
+async function nacitajVsetko(){
+  const r = await api('nacitaj', C.pin);
+  SRV = {rev:r.rev, meta:r.meta, polia:r.polia, poliaMiest:r.poliaMiest, ludia:r.ludia, vyd:{}, mie:{}, poh:{}, ser:{}, ul:{}};
+  prijmi(r, r.polia);
+  C.meno = r.meta.meno; C.rola = r.meta.rola; if (!C.sklad && r.meta.sklad) C.sklad = r.meta.sklad; ulozConf();
+  ulozCache(); online = true; poslednaSync = new Date();
+  obnovView(); postavNav(); vykresli();
+}
+let syncBezi = false, syncZnova = false;
+async function sync(){
+  if (!C.pin || !SRV) return;
+  if (syncBezi) { syncZnova = true; return; }
+  syncBezi = true; obnovSyncStav();
+  try {
+    if (OUT.length) {
+      const davka = OUT.slice(0, 80);
+      davka.forEach(o => { o.odosiela = true; });
+      let res;
+      try { res = await api('zapis', C.pin, davka.map(o => { const c = Object.assign({}, o); delete c.odosiela; return c; })); }
+      catch(e) { davka.forEach(o => { delete o.odosiela; }); throw e; }
+      OUT.splice(0, davka.length); ulozOut();
+      if (res && res.rev) davka.forEach(o => { delete o.odosiela; o.rv = res.rev; POTVRD.push(o); });
+      if (res && res.odmietnute && res.odmietnute.length) toast('Neuložené: ' + res.odmietnute.map(x => x.dovod).join(' · '), 6000);
+      if (OUT.length) syncZnova = true;
+    }
+    const r = await api('zmeny', C.pin, SRV.rev, SRV.meta.verzia);
+    if (r.reload) { await nacitajVsetko(); toast('Dáta boli aktualizované'); }
+    else {
+      const bolo = ['vydajniky','miesta','pohyby','servis','ulohy'].some(k => (r[k] || []).length);
+      prijmi(r); SRV.rev = r.rev; ulozCache();
+      POTVRD = POTVRD.filter(o => o.rv > SRV.rev);
+      obnovView();
+      if (bolo) obnovVsetko();
+    }
+    online = true; poslednaSync = new Date();
+  } catch(e) {
+    if (jeChybaKodu(e)) { odhlas(true); toast('Kód už neplatí – prihláste sa znova.', 4000); }
+    else online = false;
+  } finally {
+    syncBezi = false; obnovSyncStav();
+    if (syncZnova) { syncZnova = false; setTimeout(sync, 300); }
+  }
+}
+function obnovSyncStav(){
+  const b = $('#syncBtn'), t = $('#syncTxt');
+  b.classList.remove('cak','off');
+  if (online === false) { b.classList.add('off'); t.textContent = OUT.length ? `Offline · ${OUT.length} čaká` : 'Offline'; }
+  else if (OUT.length) { b.classList.add('cak'); t.textContent = `Odosiela ${OUT.length}`; }
+  else t.textContent = syncBezi && !poslednaSync ? 'Načítava…' : 'Uložené';
+  if (C.tab === 'viac') TABS.viac.obnov();
+}
+setInterval(() => { if (document.visibilityState === 'visible') sync(); }, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+window.addEventListener('online', () => sync());
+
+/* ---------- prihlásenie ---------- */
+function ukazLogin(){ $('#lPin').value = ''; $('#lErr').textContent = ''; $('#login').classList.add('on'); }
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pin = $('#lPin').value.trim();
+  if (!pin) return;
+  $('#lBtn').disabled = true; $('#lErr').textContent = '';
+  try {
+    const r = await api('prihlas', pin);
+    if (SRV && C.pin !== pin) { SRV = null; ulozCache(); }
+    C.pin = pin; C.meno = r.meno; C.rola = r.rola; C.tab = ''; ulozConf();
+    await nacitajVsetko();
+    $('#login').classList.remove('on');
+    sync();
+  } catch(err) {
+    $('#lErr').textContent = jeSiet(err) ? 'Nie je spojenie so serverom. Skúste to so signálom.' : err.message;
+  } finally { $('#lBtn').disabled = false; }
+});
+function odhlas(vynutene){
+  if (!vynutene && OUT.length && !confirm(`V mobile čaká ${OUT.length} neodoslaných zmien. Po odhlásení sa stratia. Odhlásiť aj tak?`)) return;
+  C.pin = ''; ulozConf();
+  // pri vynútenom odhlásení (zmenený alebo vypnutý kód) čakajúce zmeny ostanú a odošlú sa po novom prihlásení
+  if (!vynutene) { OUT = []; ulozOut(); }
+  else if (OUT.length) setTimeout(() => { $('#lErr').textContent = `V mobile čaká ${OUT.length} neodoslaných zmien – po prihlásení sa odošlú.`; }, 50);
+  SRV = null; POTVRD = []; ulozCache(); obnovView();
+  zavriModal(); $('#main').innerHTML = ''; $('#nav').innerHTML = ''; ukazLogin();
+}
+
+/* ---------- údaje ---------- */
+const sklady = () => Object.values(V.mie).filter(m => m.typ === 'sklad' && m.zmazane !== 'áno').sort((a, b) => (a.id === NEZ) - (b.id === NEZ) || a.nazov.localeCompare(b.nazov, 'sk'));
+const miesto = id => V.mie[id] || null;
+const nazovMiesta = id => { if (!id) return '—'; const m = V.mie[id]; return m ? m.nazov : id; };
+const jeSklad = id => { const m = V.mie[id]; return !!m && m.typ === 'sklad'; };
+const mojSklad = () => C.sklad && V.mie[C.sklad] ? C.sklad : '';
+const nasVlastnik = v => !v.vlastnik;
+const jadro = id => String(id).split(' ')[0];
+/** Nájde výdajník podľa QR, výrobného čísla (aj „serial no“ s prefixom) alebo evidenčného čísla 230/19. */
+function najdiVyd(t){
+  const id = normVc(t); if (!id) return [];
+  if (V.vyd[id]) return [V.vyd[id]];
+  const vsetky = Object.values(V.vyd);
+  if (/^\d{1,5}\/\d{2,4}$/.test(id)) return vsetky.filter(v => v.ev === id);
+  const j = jadro(id);
+  return vsetky.filter(v => { const k = jadro(v.id); return k === j || (j.length >= 8 && k.length >= 8 && (j.endsWith(k) || k.endsWith(j))); });
+}
+const kodVyrobku = f => /^(ean_13|ean_8|upc_a|upc_e)$/.test(f || '');
+function hladajVyd(q, limit){
+  const n = norm(q); if (!n) return [];
+  const id = normVc(q), out = [];
+  for (const v of Object.values(V.vyd)) {
+    if (v.id.includes(id) || (v.ev && v.ev === id) || norm(v.model).includes(n) || norm(nazovMiesta(v.miesto)).includes(n)) { out.push(v); if (out.length >= (limit || 60)) break; }
+  }
+  return out;
+}
+function hladajMiesta(q, typ, limit){
+  const n = norm(q);
+  const r = Object.values(V.mie).filter(m => m.zmazane !== 'áno' && (!typ || m.typ === typ) &&
+    (!n || norm(m.nazov + ' ' + m.mesto + ' ' + m.adresa + ' ' + m.ico + ' ' + m.id + ' ' + m.fakt).includes(n)));
+  r.sort((a, b) => ((V.poMieste[b.id] || []).length - (V.poMieste[a.id] || []).length) || a.nazov.localeCompare(b.nazov, 'sk'));
+  return limit ? r.slice(0, limit) : r;
+}
+function poTermine(){
+  const hr = SRV.meta.sanitMesiacov || 6;
+  return Object.values(V.vyd).filter(v => v.stav === 'zakaznik' && Math.min(mesiacov(v.odKedy) ?? 999, mesiacov(v.sanitacia) ?? 999) >= hr);
+}
+const otvoreneUlohy = () => Object.values(V.ul).filter(u => u.stav === 'nova');
+const mojeUlohy = () => otvoreneUlohy().filter(u => !u.pre || u.pre === C.meno);
+
+/* ---------- vykresľovanie ---------- */
+const pill = st => `<span class="pill ${PILL[st] || 'p-nie'}">${esc(STAVY[st] || st || '—')}</span>`;
+function itemVyd(v, extra){
+  const m = v.miesto ? nazovMiesta(v.miesto) : '';
+  const san = v.sanitacia ? 'sanit. ' + vek(v.sanitacia) : 'bez sanitácie';
+  return `<button class="item${v.cak ? ' cak' : ''}" type="button" data-act="vyd" data-id="${esc(v.id)}">
+    <div class="main"><div class="name"><span class="mono">${esc(v.vc || v.id)}</span> <span class="muted small">${esc(v.model)}</span></div>
+    <div class="sub">${pill(v.stav)} ${esc(m)}${v.odKedy ? ' · od ' + esc(fmtD(v.odKedy)) : ''}${v.navrh ? ' · <b>návrh na vyradenie</b>' : ''}${v.vlastnik ? ' · zákazníka' : ''}${extra ? ' · ' + extra : ''}</div></div>
+    <div class="qty">${esc(san)}</div></button>`;
+}
+function itemMiesto(m){
+  const n = (V.poMieste[m.id] || []).length;
+  return `<button class="item${m.cak ? ' cak' : ''}" type="button" data-act="miesto" data-id="${esc(m.id)}">
+    <div class="main"><div class="name">${esc(m.nazov || m.id)}</div><div class="sub">${esc([m.adresa, m.mesto].filter(Boolean).join(', '))}${m.ico ? ' · IČO ' + esc(m.ico) : ''}</div></div>
+    <div class="qty"><div class="n">${n}</div>ks</div></button>`;
+}
+function itemUloha(u){
+  const m = miesto(u.miesto);
+  const neskoro = u.stav === 'nova' && u.termin && u.termin < dnes();
+  return `<button class="item${u.cak ? ' cak' : ''}" type="button" data-act="uloha" data-id="${esc(u.id)}">
+    <div class="main"><div class="name"><span class="pill ${u.stav === 'hotova' ? 'p-ok' : u.typ === 'porucha' ? 'p-bad' : 'p-acc'}">${esc(TYPY_ULOH[u.typ] || u.typ)}</span> ${esc(m ? m.nazov : u.miesto || '—')}</div>
+    <div class="sub">${esc(m ? m.mesto : '')}${u.termin ? ' · <span style="' + (neskoro ? 'color:var(--bad);font-weight:600' : '') + '">' + esc(fmtD(u.termin)) + '</span>' : ''}${u.pre ? ' · ' + esc(u.pre) : ' · ktokoľvek'}${u.popis ? ' · ' + esc(u.popis) : ''}</div></div>
+    <div class="qty">${u.pocet ? '<div class="n">' + esc(u.pocet) + '</div>ks' : ''}${u.stav === 'hotova' ? '<div>' + esc(fmtCas(u.hotovo)) + '</div>' : ''}</div></button>`;
+}
+function hrowPohyb(p){
+  return `<div class="hrow${p.cak ? ' cak' : ''}"><div class="t">${esc(TYPY_POHYBU[p.typ] || p.typ)} · <span class="mono">${esc(p.vc || p.vyd)}</span></div>
+    <div class="m">${esc(fmtCas(p.cas))} · ${esc(p.kto)} · ${esc(nazovMiesta(p.z))} → ${esc(nazovMiesta(p.kam))}${p.dl ? ' · DL ' + esc(p.dl) : ''}${p.pozn ? ' · ' + esc(p.pozn) : ''}${p.podpis ? ' · ✍ ' + esc(String(p.podpis).split('|')[0]) : ''}${p.cak ? ' · čaká na odoslanie' : ''}</div></div>`;
+}
+function hrowServis(s){
+  return `<div class="hrow${s.cak ? ' cak' : ''}"><div class="t">${esc(TYPY_SERVISU[s.typ] || s.typ)}${s.vysledok ? ' – ' + esc(VYSLEDKY[s.vysledok] || s.vysledok) : ''} · <span class="mono">${esc(s.vc || s.vyd)}</span></div>
+    <div class="m">${esc(fmtCas(s.cas))} · ${esc(s.kto)}${s.popis ? ' · ' + esc(s.popis) : ''}${s.diely ? ' · diely: ' + esc(s.diely) : ''}${s.cak ? ' · čaká na odoslanie' : ''}</div></div>`;
+}
+const zoznam = (arr, fn, prazdne) => arr.length ? `<div class="list">${arr.map(fn).join('')}</div>` : `<div class="empty-state">${esc(prazdne || 'Nič tu nie je.')}</div>`;
+const kpi = (l, v, cls, act) => `<button class="kpi" type="button" ${act || ''}><div class="l">${esc(l)}</div><div class="v ${cls || ''}">${esc(v)}</div></button>`;
+
+/* ---------- záložky ---------- */
+const ROLE_TABS = {sofer:['domov','ulohy','miesta','hladaj','viac'], sanitar:['domov','servis','sanitacia','vydajniky','viac'],
+  referentka:['domov','prehlad','vydajniky','miesta','ulohy'], admin:['domov','prehlad','vydajniky','miesta','ulohy']};
+// záložky, na ktoré sa ide z dlaždíc na úvodnej obrazovke (v spodnej lište nie sú)
+const ROLE_EXTRA = {sofer:[], sanitar:['hladaj','miesta','ulohy'], referentka:['servis','sanitacia','hladaj','viac'], admin:['servis','sanitacia','hladaj','viac']};
+const TABS = {};
+function postavNav(){
+  const t = ROLE_TABS[rola()] || ROLE_TABS.sofer;
+  if (!t.concat(ROLE_EXTRA[rola()] || []).includes(C.tab)) C.tab = t[0];
+  $('#nav').innerHTML = t.map(k => `<button type="button" data-act="tab" data-tab="${k}" class="${k === C.tab ? 'on' : ''}">${svg(k)}${esc(TABS[k].nazov)}<span class="badge" id="badge-${k}" hidden></span></button>`).join('');
+  $('#whoBtn').textContent = C.meno || '';
+}
+function vykresli(){
+  if (!V) return;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === C.tab));
+  $('#main').innerHTML = TABS[C.tab].kostra();
+  TABS[C.tab].obnov();
+  obnovOdznaky();
+}
+function obnovVsetko(){
+  if (!V) return;
+  TABS[C.tab].obnov();
+  obnovOdznaky();
+  const top = STACK[STACK.length - 1];
+  if (top && top.ziva) renderModal();
+}
+function obnovOdznaky(){
+  for (const el of document.querySelectorAll('[data-badge="ulohy"]')) { const n = (jeRef() ? otvoreneUlohy() : mojeUlohy()).length; el.textContent = n; el.hidden = !n; }
+  const b = document.getElementById('badge-ulohy');
+  if (b) { const n = (jeRef() ? otvoreneUlohy() : mojeUlohy()).length; b.textContent = n; b.hidden = !n; }
+}
+
+/* PREHĽAD (referentky) */
+TABS.prehlad = {nazov:'Prehľad',
+  kostra: () => `
+    <div class="kpis k6" id="pKpi"></div>
+    <div class="card"><h3>Po skladoch</h3><div class="tscroll" id="pSklady"></div></div>
+    <div class="card"><h3>Dlho u zákazníka – na výmenu</h3><p class="note" id="pTerminInfo" style="margin-top:0"></p><div id="pTermin"></div></div>
+    <div class="card"><h3>Posledné dni</h3><div class="tscroll" id="pAkt"></div></div>
+    <div class="card"><h3>Výkaz pre fakturáciu</h3>
+      <div class="grid2"><div class="fld"><label for="vOd">Od</label><input type="date" id="vOd"></div><div class="fld"><label for="vDo">Do</label><input type="date" id="vDo"></div></div>
+      <div class="actions two" style="margin-top:10px"><button class="btn pri" type="button" data-act="vykaz">Stiahnuť výkaz (Excel)</button><button class="btn" type="button" data-act="exportStav">Stav u zákazníkov (Excel)</button></div>
+      <p class="note">Výkaz: výdaje, zvozy, sanitácie a opravy za obdobie po zákazníkoch + všetky záznamy. Stav: čo je dnes u ktorého zákazníka (podklad k nájmu).</p></div>
+    <div class="card"><h3>Na doriešenie</h3><div id="pProblemy"></div></div>`,
+  obnov(){
+    const p = V.pocty, akt = Object.values(V.vyd).filter(v => v.stav !== 'vyradeny').length;
+    $('#pKpi').innerHTML = [
+      kpi('U zákazníkov', p.zakaznik || 0, 'info', 'data-act="filtrStav" data-stav="zakaznik"'),
+      kpi('Pripravené na sklade', p.pripraveny || 0, 'ok', 'data-act="filtrStav" data-stav="pripraveny"'),
+      kpi('Čaká na sanitáciu', p.spinavy || 0, 'warn', 'data-act="filtrStav" data-stav="spinavy"'),
+      kpi('V oprave', p.oprava || 0, 'bad', 'data-act="filtrStav" data-stav="oprava"'),
+      kpi('Na vyradenie', p.vyradenie || 0, 'bad', 'data-act="filtrStav" data-stav="vyradenie"'),
+      kpi('Nezistené', p.nezname || 0, '', 'data-act="filtrStav" data-stav="nezname"')].join('');
+    const sl = sklady(), riad = sl.map(s => { const a = V.poMieste[s.id] || [], c = st => a.filter(v => v.stav === st).length;
+      return {s, n:[c('pripraveny'), c('spinavy'), c('oprava'), c('vyradenie')], spolu:a.length}; }).filter(r => r.spolu);
+    const suma = [0,1,2,3].map(i => riad.reduce((x, r) => x + r.n[i], 0));
+    $('#pSklady').innerHTML = riad.length ? `<table><tr><th>Sklad</th><th class="r">Pripravené</th><th class="r">Čaká na san.</th><th class="r">V oprave</th><th class="r">Na vyradenie</th><th class="r">Spolu</th></tr>
+      ${riad.map(r => `<tr><td><a href="#" data-act="miesto" data-id="${esc(r.s.id)}">${esc(r.s.nazov)}</a></td>${r.n.map(x => `<td class="r">${x || ''}</td>`).join('')}<td class="r"><b>${r.spolu}</b></td></tr>`).join('')}
+      <tr class="sum"><td>Spolu na skladoch</td>${suma.map(x => `<td class="r">${x}</td>`).join('')}<td class="r">${suma.reduce((a, b) => a + b, 0)}</td></tr></table>
+      <p class="note">Aktívnych výdajníkov spolu ${akt}, z toho u zákazníkov ${p.zakaznik || 0}.</p>` : '<div class="empty-state">Na skladoch nie je nič. Najprv nahrajte dáta zo SPIN (Viac → Import).</div>';
+    const pt = poTermine(), poZak = {};
+    for (const v of pt) (poZak[v.miesto] = poZak[v.miesto] || []).push(v);
+    const zak = Object.entries(poZak).sort((a, b) => b[1].length - a[1].length);
+    $('#pTerminInfo').textContent = `${pt.length} ${sk(pt.length,'výdajník je','výdajníky sú','výdajníkov je')} u zákazníka bez výmeny a sanitácie dlhšie ako ${SRV.meta.sanitMesiacov} mesiacov – ${zak.length} zákazníkov.`;
+    $('#pTermin').innerHTML = zak.length ? `<div class="list">${zak.slice(0, 25).map(([id, a]) => { const m = miesto(id) || {nazov:id, mesto:''};
+      const naj = a.map(v => [v.odKedy, v.sanitacia].filter(Boolean).sort().pop() || '').sort()[0];
+      return `<div class="item"><div class="main"><div class="name"><a href="#" data-act="miesto" data-id="${esc(id)}">${esc(m.nazov)}</a></div><div class="sub">${esc(m.mesto)} · ${a.length} ks · najstarší ${esc(naj ? fmtD(naj) : 'bez záznamu')}</div></div>
+        <button class="btn small" type="button" data-act="novaUloha" data-miesto="${esc(id)}" data-typ="vymena" data-pocet="${a.length}">Úloha</button></div>`; }).join('')}</div>
+      ${zak.length > 25 ? `<p class="note">… a ďalších ${zak.length - 25} zákazníkov (celý zoznam: Výdajníky → filter U zákazníka, export).</p>` : ''}` : '<div class="empty-state">Nič po termíne.</div>';
+    const dni = [];
+    for (let i = 0; i < 7; i++) dni.push(denIso(Date.now() - i * 864e5));
+    const poh = Object.values(V.poh), ser = Object.values(V.ser);
+    const c = (arr, d, f) => arr.filter(x => denIso(x.cas) === d && f(x)).length || '';
+    $('#pAkt').innerHTML = `<table><tr><th>Deň</th><th class="r">Výdaje</th><th class="r">Zvozy</th><th class="r">Sanitácie</th><th class="r">Opravy</th><th class="r">Návrhy na vyr.</th></tr>
+      ${dni.map(d => `<tr><td>${esc(fmtD(d))}</td><td class="r">${c(poh, d, x => x.typ === 'vydaj')}</td><td class="r">${c(poh, d, x => x.typ === 'prijem')}</td><td class="r">${c(ser, d, x => x.typ === 'sanitacia')}</td><td class="r">${c(ser, d, x => x.typ === 'oprava')}</td><td class="r">${c(ser, d, x => x.typ === 'navrh')}</td></tr>`).join('')}</table>`;
+    if (!$('#vOd').value) { const d = new Date(); const od = new Date(d.getFullYear(), d.getMonth() - 1, 1), po = new Date(d.getFullYear(), d.getMonth(), 0); $('#vOd').value = denIso(od); $('#vDo').value = denIso(po); }
+    const nez = (V.poMieste[NEZ] || []).length, navrhZak = Object.values(V.vyd).filter(v => v.navrh && v.stav === 'zakaznik').length;
+    const porucha = otvoreneUlohy().filter(u => u.typ === 'porucha').length;
+    $('#pProblemy').innerHTML = `<div class="list">
+      ${nez ? `<button class="item" type="button" data-act="miesto" data-id="${NEZ}"><div class="main"><div class="name">Vrátené – sklad nezistený</div><div class="sub">Vo SPIN je posledný pohyb vrátenie, ale nevieme kam. Pri inventúre naskenovať a zapísať sklad.</div></div><div class="qty"><div class="n">${nez}</div>ks</div></button>` : ''}
+      ${p.nezname ? `<button class="item" type="button" data-act="filtrStav" data-stav="nezname"><div class="main"><div class="name">Nezistené</div><div class="sub">Výdajníky bez dokladu – nevie sa, kde sú.</div></div><div class="qty"><div class="n">${p.nezname}</div>ks</div></button>` : ''}
+      ${navrhZak ? `<button class="item" type="button" data-act="filtrNavrh"><div class="main"><div class="name">Návrh na vyradenie, ale u zákazníka</div><div class="sub">Treba vymeniť a zviezť.</div></div><div class="qty"><div class="n">${navrhZak}</div>ks</div></button>` : ''}
+      ${porucha ? `<button class="item" type="button" data-act="tab" data-tab="ulohy"><div class="main"><div class="name">Otvorené poruchy u zákazníkov</div><div class="sub">Úlohy typu porucha.</div></div><div class="qty"><div class="n">${porucha}</div></div></button>` : ''}
+      </div>${!nez && !p.nezname && !navrhZak && !porucha ? '<div class="empty-state">Nič na doriešenie.</div>' : ''}`;
+  }
+};
+
+/* VÝDAJNÍKY */
+TABS.vydajniky = {nazov:'Výdajníky', limit:80,
+  kostra(){
+    this.limit = 80;
+    const sl = sklady();
+    return `<div class="filters">
+      <div class="row"><input type="search" id="vQ" placeholder="Výrobné č., evidenčné č. (230/19), model, zákazník…" value="${esc(C.f.vq)}" style="flex:2 1 260px">
+        <select id="vMiesto" style="flex:1 1 200px"><option value="">Všetky miesta</option><option value="__zak">Len u zákazníkov</option><option value="__sklady">Len na skladoch</option>${sl.map(s => `<option value="${esc(s.id)}">${esc(s.nazov)}</option>`).join('')}</select>
+        <select id="vVlast" style="flex:1 1 150px"><option value="">Naše aj zákaznícke</option><option value="nase">Len naše</option><option value="zak">Len zákaznícke</option></select></div>
+      <div class="chips" id="vChips"></div></div>
+      <div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="note" id="vInfo"></span>
+        <span class="row">${jeSanit() ? '<button class="btn small" type="button" data-act="novyVyd">+ Nový výdajník</button>' : ''}${jeSanit() ? '<button class="btn small" type="button" data-act="stitkyFilter">Štítky</button>' : ''}${jeRef() ? '<button class="btn small" type="button" data-act="exportVyd">Excel</button>' : ''}</span></div>
+      <div id="vList"></div>`;
+  },
+  filtrovane(){
+    const q = C.f.vq, n = norm(q), id = normVc(q), st = C.f.vstav, mi = C.f.vmiesto, vl = C.f.vvlast;
+    return Object.values(V.vyd).filter(v => {
+      if (st === 'akt' ? v.stav === 'vyradeny' : st === 'navrh' ? !v.navrh : st && v.stav !== st) return false;
+      if (mi === '__zak' ? v.stav !== 'zakaznik' : mi === '__sklady' ? !jeSklad(v.miesto) || v.stav === 'zakaznik' : mi && v.miesto !== mi) return false;
+      if (vl === 'nase' && v.vlastnik) return false;
+      if (vl === 'zak' && !v.vlastnik) return false;
+      if (n && !(v.id.includes(id) || v.ev === id || norm(v.model).includes(n) || norm(nazovMiesta(v.miesto)).includes(n) || norm(v.vlastnik).includes(n))) return false;
+      return true;
+    });
+  },
+  obnov(){
+    $('#vMiesto').value = C.f.vmiesto; $('#vVlast').value = C.f.vvlast;
+    const zakl = Object.values(V.vyd);
+    const ch = [['akt','Aktívne', zakl.filter(v => v.stav !== 'vyradeny').length]].concat(Object.keys(STAVY).map(k => [k, STAVY[k], V.pocty[k] || 0]))
+      .concat([['navrh','Návrh na vyradenie', zakl.filter(v => v.navrh).length]]);
+    $('#vChips').innerHTML = ch.map(([k, l, n]) => `<button class="chip${C.f.vstav === k ? ' on' : ''}" type="button" data-act="vChip" data-k="${k}">${esc(l)}<b>${n}</b></button>`).join('');
+    const r = this.filtrovane().sort((a, b) => String(a.odKedy || '9').localeCompare(String(b.odKedy || '9')) || a.id.localeCompare(b.id));
+    $('#vInfo').textContent = r.length + ' ' + sk(r.length, 'výdajník', 'výdajníky', 'výdajníkov');
+    $('#vList').innerHTML = zoznam(r.slice(0, this.limit), v => itemVyd(v), 'Nič nezodpovedá filtru.') +
+      (r.length > this.limit ? `<button class="btn more" type="button" data-act="viac" data-tab="vydajniky">Zobraziť ďalších (${r.length - this.limit})</button>` : '');
+  }
+};
+
+/* ZÁKAZNÍCI A SKLADY */
+TABS.miesta = {nazov:'Zákazníci', limit:60,
+  kostra(){
+    this.limit = 60;
+    return `<div class="filters"><input type="search" id="mQ" placeholder="Názov, mesto, ulica, IČO…" value="${esc(C.f.mq)}">
+      <div class="row"><div class="seg" style="flex:1"><button type="button" data-act="mTyp" data-k="zakaznik" class="${C.f.mtyp === 'zakaznik' ? 'on' : ''}">Zákazníci</button><button type="button" data-act="mTyp" data-k="sklad" class="${C.f.mtyp === 'sklad' ? 'on' : ''}">Sklady</button></div>
+      ${jeRef() ? '<button class="btn small" type="button" data-act="noveMiesto">+ Nové</button>' : ''}</div></div>
+      <div class="note" id="mInfo" style="margin-bottom:8px"></div><div id="mList"></div>`;
+  },
+  obnov(){
+    const r = hladajMiesta(C.f.mq, C.f.mtyp);
+    $('#mInfo').textContent = r.length + (C.f.mtyp === 'sklad' ? ' skladov' : ' zákazníkov / odberných miest') + ' · číslo vpravo = výdajníky na mieste';
+    $('#mList').innerHTML = zoznam(r.slice(0, this.limit), itemMiesto, 'Nič sa nenašlo.') +
+      (r.length > this.limit ? `<button class="btn more" type="button" data-act="viac" data-tab="miesta">Zobraziť ďalších (${r.length - this.limit})</button>` : '');
+  }
+};
+
+/* ÚLOHY */
+TABS.ulohy = {nazov:'Úlohy',
+  kostra(){
+    if (!jeRef()) return `<div class="group"><h2>Na vybavenie</h2><span id="uN"></span></div><div id="uMoje"></div>
+      <div class="group"><h2>Hotové dnes</h2></div><div id="uHotove"></div>
+      <div class="group"><h2>Moje dnešné záznamy</h2></div><div id="uZaznamy"></div>`;
+    const ludia = (SRV.ludia || []).filter(l => l.rola === 'sofer');
+    return `<div class="filters"><div class="row">
+      <div class="seg" style="flex:1 1 220px"><button type="button" data-act="uFil" data-k="otvorene" class="${C.f.ufil === 'otvorene' ? 'on' : ''}">Otvorené</button><button type="button" data-act="uFil" data-k="hotove" class="${C.f.ufil === 'hotove' ? 'on' : ''}">Hotové</button></div>
+      <select id="uPre" style="flex:1 1 180px"><option value="">Všetci šoféri</option><option value="__nikto">Nepriradené</option>${ludia.map(l => `<option>${esc(l.meno)}</option>`).join('')}</select>
+      <button class="btn pri small" type="button" data-act="novaUloha">+ Nová úloha</button></div></div><div id="uList"></div>`;
+  },
+  obnov(){
+    if (!jeRef()) {
+      const m = mojeUlohy().sort((a, b) => String(a.termin || '9').localeCompare(String(b.termin || '9')) || String(a.vytvorene).localeCompare(String(b.vytvorene)));
+      $('#uN').textContent = m.length || '';
+      $('#uMoje').innerHTML = zoznam(m, itemUloha, 'Žiadne úlohy. Výdajník nájdete cez Skenovať alebo Hľadať.');
+      $('#uHotove').innerHTML = zoznam(Object.values(V.ul).filter(u => u.stav === 'hotova' && jeDnes(u.hotovo) && u.hotovoKto === C.meno), itemUloha, 'Zatiaľ nič.');
+      $('#uZaznamy').innerHTML = mojeZaznamy();
+      return;
+    }
+    $('#uPre').value = C.f.upre;
+    let r = Object.values(V.ul).filter(u => C.f.ufil === 'otvorene' ? u.stav === 'nova' : u.stav === 'hotova');
+    if (C.f.upre === '__nikto') r = r.filter(u => !u.pre); else if (C.f.upre) r = r.filter(u => u.pre === C.f.upre);
+    r.sort((a, b) => C.f.ufil === 'otvorene' ? String(a.termin || '9').localeCompare(String(b.termin || '9')) : String(b.hotovo).localeCompare(String(a.hotovo)));
+    $('#uList').innerHTML = zoznam(r, itemUloha, C.f.ufil === 'otvorene' ? 'Žiadne otvorené úlohy.' : 'Žiadne hotové úlohy za posledné 2 mesiace.');
+  }
+};
+function mojeZaznamy(){
+  const a = Object.values(V.poh).filter(p => p.kto === C.meno && jeDnes(p.cas)).map(p => ({cas:p.cas, h:hrowPohyb(p)}))
+    .concat(Object.values(V.ser).filter(s => s.kto === C.meno && jeDnes(s.cas)).map(s => ({cas:s.cas, h:hrowServis(s)})))
+    .sort((x, y) => y.cas.localeCompare(x.cas));
+  return a.length ? `<div class="hist">${a.map(x => x.h).join('')}</div>` : '<div class="empty-state">Dnes ešte nič.</div>';
+}
+
+/* SANITÁCIA */
+TABS.sanitacia = {nazov:'Sanitácia',
+  kostra(){
+    const sl = sklady();
+    if (!C.f.sSklad && mojSklad()) C.f.sSklad = mojSklad();
+    return `<div class="filters"><select id="sSklad"><option value="">Všetky sklady</option>${sl.map(s => `<option value="${esc(s.id)}">${esc(s.nazov)}</option>`).join('')}</select></div>
+      <button class="btn pri big" type="button" data-act="skenSanit">${svg('qr')}Skenovať – sanitácia</button>
+      <div class="kpis" id="sKpi" style="margin-top:12px"></div>
+      <div class="group"><h2>Čaká na sanitáciu</h2><span id="sN1"></span></div><div id="sCaka"></div>
+      <div class="group"><h2>V oprave</h2><span id="sN2"></span></div><div id="sOprava"></div>
+      <div class="group"><h2>Dnes hotové</h2><span id="sN3"></span></div><div id="sDnes"></div>`;
+  },
+  obnov(){
+    $('#sSklad').value = C.f.sSklad;
+    const sk_ = C.f.sSklad, naSklade = v => !sk_ || v.miesto === sk_;
+    const vs = Object.values(V.vyd).filter(naSklade);
+    const caka = vs.filter(v => v.stav === 'spinavy').sort((a, b) => String(a.odKedy).localeCompare(String(b.odKedy)));
+    const opr = vs.filter(v => v.stav === 'oprava');
+    const dnesS = Object.values(V.ser).filter(s => jeDnes(s.cas) && (!sk_ || s.miesto === sk_)).sort((a, b) => b.cas.localeCompare(a.cas));
+    const sanDnes = dnesS.filter(s => s.typ === 'sanitacia');
+    $('#sKpi').innerHTML = [kpi('Čaká na sanitáciu', caka.length, 'warn'), kpi('Dnes sanitované', sanDnes.length, 'ok'),
+      kpi('Z toho moje', sanDnes.filter(s => s.kto === C.meno).length, ''), kpi('Pripravené', vs.filter(v => v.stav === 'pripraveny').length, 'ok'),
+      kpi('V oprave', opr.length, 'bad'), kpi('Na vyradenie', vs.filter(v => v.stav === 'vyradenie').length, 'bad')].join('');
+    $('#sN1').textContent = caka.length; $('#sN2').textContent = opr.length; $('#sN3').textContent = dnesS.length;
+    $('#sCaka').innerHTML = zoznam(caka.slice(0, 60), v => itemVyd(v), 'Nič nečaká.');
+    $('#sOprava').innerHTML = zoznam(opr, v => itemVyd(v), 'Nič v oprave.');
+    $('#sDnes').innerHTML = dnesS.length ? `<div class="hist">${dnesS.map(hrowServis).join('')}</div>` : '<div class="empty-state">Dnes ešte nič.</div>';
+  }
+};
+
+/* HĽADAŤ */
+TABS.hladaj = {nazov:'Hľadať',
+  kostra: () => `<button class="btn pri big" type="button" data-act="skenNajdi">${svg('qr')}Skenovať QR kód</button>
+    <div class="filters" style="margin-top:12px"><input type="search" id="hQ" placeholder="Výrobné č., evidenčné č. (230/19), model, zákazník…" value="${esc(C.f.hq)}"></div>
+    <div id="hList"></div>
+    <div class="group"><h2>Moje dnešné záznamy</h2></div><div id="hZaznamy"></div>`,
+  obnov(){
+    const q = C.f.hq;
+    if (!q) $('#hList').innerHTML = '<p class="note">Naskenujte QR kód na výdajníku alebo napíšte číslo. Evidenčné číslo je na žltom štítku (napr. 230/19).</p>';
+    else {
+      const v = hladajVyd(q, 40), m = hladajMiesta(q, '', 15).filter(x => norm(x.nazov + ' ' + x.mesto).includes(norm(q)));
+      $('#hList').innerHTML = (v.length ? `<div class="group"><h2>Výdajníky</h2></div>${zoznam(v, x => itemVyd(x))}` : '') +
+        (m.length ? `<div class="group"><h2>Zákazníci a sklady</h2></div>${zoznam(m, itemMiesto)}` : '') +
+        (!v.length && !m.length ? `<div class="empty-state">Nič sa nenašlo.${jeSanit() ? `<br><br><button class="btn small" type="button" data-act="novyVyd" data-vc="${esc(q)}">+ Založiť nový výdajník ${esc(q)}</button>` : ''}</div>` : '');
+    }
+    $('#hZaznamy').innerHTML = mojeZaznamy();
+  }
+};
+
+/* VIAC */
+TABS.viac = {nazov:'Viac',
+  kostra: () => `
+    <div class="card"><h3>Prihlásený</h3><dl class="dl" id="xJa"></dl>
+      <div class="fld" style="margin-top:12px"><label for="xSklad">Môj sklad (sem idú prevzaté výdajníky)</label><select id="xSklad"></select></div>
+      <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="odhlas">Odhlásiť z tohto zariadenia</button></div></div>
+    <div class="card"><h3>Synchronizácia</h3><dl class="dl" id="xSync"></dl>
+      <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="syncTeraz">Synchronizovať teraz</button><button class="btn" type="button" data-act="nacitajZnova">Načítať všetko znova</button></div>
+      <p class="note">Každá zmena sa hneď posiela do spoločnej databázy. Bez signálu zmeny čakajú v mobile a odošlú sa samé. Kým čakajú, neodhlasujte sa.</p></div>
+    <div class="card" id="xAdmin" hidden><h3>Správa</h3>
+      <div class="actions two"><button class="btn" type="button" data-act="ludia">Používatelia a kódy</button><button class="btn" type="button" data-act="importOtvor">Import zo SPIN (Excel)</button>
+      <button class="btn" type="button" data-act="noveMiesto" data-typ="sklad">+ Nový sklad</button><button class="btn" type="button" data-act="nastavenia">Nastavenia</button></div>
+      <dl class="dl" id="xAdminInfo" style="margin-top:12px"></dl><div class="qr" id="xQr" hidden></div></div>
+    <p class="note">Na plochu mobilu: v Chrome menu ⋮ → Pridať na plochu. Skenovanie kamerou funguje v Chrome na Androide aj na iPhone; keď sa kamera nespustí, použite „Odfotiť kód“.</p>`,
+  obnov(){
+    if (!$('#xJa')) return;
+    $('#xJa').innerHTML = `<dt>Meno</dt><dd>${esc(C.meno)}</dd><dt>Rola</dt><dd>${esc(ROLY[rola()] || '')}</dd>`;
+    const xs = $('#xSklad');
+    if (!xs.dataset.on) { xs.innerHTML = '<option value="">— vyberte —</option>' + sklady().filter(s => s.id !== NEZ).map(s => `<option value="${esc(s.id)}">${esc(s.nazov)}</option>`).join(''); xs.value = mojSklad(); xs.dataset.on = 1; }
+    $('#xSync').innerHTML = `<dt>Stav</dt><dd>${online === false ? 'bez spojenia' : 'online'}</dd><dt>Čaká na odoslanie</dt><dd>${OUT.length}</dd>
+      <dt>Posledná synchronizácia</dt><dd>${poslednaSync ? esc(poslednaSync.toLocaleTimeString('sk-SK')) : '—'}</dd><dt>Výdajníkov v mobile</dt><dd>${Object.keys(V.vyd).length}</dd>
+      <dt>Import zo SPIN</dt><dd>${esc(SRV.meta.import || 'zatiaľ nebol')}</dd>`;
+    $('#xAdmin').hidden = !jeAdmin();
+    if (jeAdmin()) {
+      // v samostatnej appke (GitHub) je odkazom jej vlastná adresa
+      const m = window.API_URL ? Object.assign({}, SRV.meta, {url: location.origin + location.pathname}) : SRV.meta;
+      $('#xAdminInfo').innerHTML = `<dt>Odkaz</dt><dd>${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a>` : '—'}</dd>
+        <dt>Tabuľka</dt><dd>${m.tabulka ? `<a href="${esc(m.tabulka)}" target="_blank" rel="noopener">otvoriť Google tabuľku</a>` : '—'}</dd><dt>Interval výmeny</dt><dd>${esc(m.sanitMesiacov)} mesiacov</dd>`;
+      const qr = $('#xQr');
+      if (m.url && window.QRCode && qr.dataset.url !== m.url) { qr.innerHTML = ''; new QRCode(qr, {text:m.url, width:170, height:170}); qr.dataset.url = m.url; }
+      qr.hidden = !(m.url && window.QRCode);
+    }
+  }
+};
+
+/* DOMOV – dlaždice ako vo Flex Mobility */
+const tile = (ikona, t, sub, attrs, badge) => `<button class="tile" type="button" ${attrs}>${svg(ikona)}<div><div class="t">${esc(t)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>${badge ? `<span class="b2" data-badge="${badge}" hidden></span>` : ''}</button>`;
+TABS.domov = {nazov:'Domov',
+  kostra(){
+    const h = new Date().getHours(), pozdrav = h < 10 ? 'Dobré ráno' : h < 18 ? 'Dobrý deň' : 'Dobrý večer';
+    const r = rola(), caka = Object.values(V.vyd).filter(v => v.stav === 'spinavy' && (!mojSklad() || v.miesto === mojSklad())).length;
+    const T = {
+      ulohy: tile('ulohy', 'Úlohy', jeRef() ? 'pre šoférov' : 'čo treba vybaviť', 'data-act="tab" data-tab="ulohy"', 'ulohy'),
+      vydaj: tile('vydaj', 'Výdaj zákazníkovi', 'vybrať zákazníka a skenovať', 'data-act="rychly" data-typ="vydaj"'),
+      zvoz: tile('zvoz', r === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', 'skenovať prevzaté výdajníky', 'data-act="rychly" data-typ="prijem"'),
+      servis: tile('servis', 'Servis', 'sanitácia, oprava, revízia', 'data-act="tab" data-tab="servis"'),
+      sanitacia: tile('sanitacia', 'Sanitácia', caka + ' čaká na sanitáciu', 'data-act="tab" data-tab="sanitacia"'),
+      miesta: tile('miesta', 'Zákazníci', 'kontakty a výdajníky', 'data-act="tab" data-tab="miesta"'),
+      hladaj: tile('hladaj', 'Hľadať výdajník', 'číslo, model, zákazník', 'data-act="tab" data-tab="hladaj"'),
+      vydajniky: tile('vydajniky', 'Výdajníky', Object.values(V.vyd).filter(v => v.stav !== 'vyradeny').length + ' aktívnych', 'data-act="tab" data-tab="vydajniky"'),
+      prehlad: tile('prehlad', 'Prehľad a výkazy', 'stav, výmeny, Excel', 'data-act="tab" data-tab="prehlad"'),
+      viac: tile('nastav', jeAdmin() ? 'Správa a nastavenia' : 'Nastavenia', 'sklad, synchronizácia', 'data-act="tab" data-tab="viac"')
+    };
+    const poradie = {sofer:['ulohy','vydaj','zvoz','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','vydajniky','hladaj','viac'],
+      referentka:['prehlad','ulohy','vydajniky','miesta','servis','viac'], admin:['prehlad','ulohy','vydajniky','miesta','servis','viac']}[r] || ['hladaj'];
+    return `<div class="hello"><h2>${esc(pozdrav)}, ${esc(String(C.meno || '').split(' ')[0])}</h2><div class="s">${esc(ROLY[r] || '')}${mojSklad() ? ' · ' + esc(nazovMiesta(mojSklad())) : ''} · ${esc(new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'numeric'}))}</div></div>
+      <div class="tiles">${poradie.map(k => T[k]).join('')}</div>
+      ${jeRef() ? '' : '<div class="group"><h2>Moje dnešné záznamy</h2></div><div id="dZaznamy"></div>'}`;
+  },
+  obnov(){ const z = $('#dZaznamy'); if (z) z.innerHTML = mojeZaznamy(); obnovOdznaky(); }
+};
+
+/* SERVIS – rovnaký postup ako vo Flex Mobility: výdajník → karta + história → Záznam servisu → výber činnosti → popis */
+const SERVIS = {id:'', zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}};
+const CINNOSTI = [['O', 'oprava', 'Oprava'], ['R', 'revizia', 'Revízia'], ['S', 'sanitacia', 'Sanitácia'], ['N', 'navrh', 'Návrh na vyradenie'], ['P', 'porucha', 'Hlásenie poruchy']];
+function otvorServis(id){
+  Object.assign(SERVIS, {id, zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}});
+  C.tab = 'servis'; ulozConf(); zavriModal(); vykresli(); window.scrollTo(0, 0);
+}
+function servisRiadky(v){
+  const r = [];
+  const lok = Object.values(V.ser).filter(x => x.vyd === v.id);
+  const cela = SERVIS.histPre === v.id && SERVIS.hist ? SERVIS.hist.servis : [];
+  const vid = new Set();
+  for (const x of cela.concat(lok)) { if (vid.has(x.id)) continue; vid.add(x.id); r.push({cas:x.cas, cin:TYPY_SERVISU[x.typ] || x.typ, popis:[VYSLEDKY[x.vysledok] || x.vysledok, x.popis, x.diely ? 'diely: ' + x.diely : ''].filter(Boolean).join(' · '), kto:x.kto, cak:x.cak}); }
+  // posledné záznamy zo SPIN (technik vo zostave nie je)
+  let spin = {}; try { spin = v.spin ? JSON.parse(v.spin) : {}; } catch(e) {}
+  for (const [k, l] of [['sanitacia', 'Sanitácia'], ['oprava', 'Oprava'], ['revizia', 'Revízia']]) {
+    const d = v[k]; if (!d || r.some(x => String(x.cas).slice(0, 10) === String(d).slice(0, 10) && x.cin === l)) continue;
+    if (r.some(x => !x.spin && x.cas === d)) continue;
+    r.push({cas:d, cin:l, popis:k === 'oprava' && spin.Popis ? spin.Popis.split('\n').pop() : '', kto:'SPIN', spin:true});
+  }
+  return r.sort((a, b) => String(b.cas).localeCompare(String(a.cas)));
+}
+TABS.servis = {nazov:'Servis',
+  kostra: () => `<div class="fx"><div class="fxh">${svg('servis')}<div class="tt">Servis</div><span style="margin-left:auto;font-size:13px;color:#b9cfe0">${esc(C.meno || '')}</span></div>
+      <div class="fxbox"><label class="small muted" for="srvVyd" style="display:block;margin-bottom:6px">Výdajník</label>
+      <div class="vinput"><input type="text" id="srvVyd" placeholder="výrobné číslo alebo evidenčné (230/19)" autocomplete="off" value="${esc(SERVIS.id ? (V.vyd[SERVIS.id] || {}).vc || SERVIS.id : '')}">
+      <button class="btn" type="button" data-act="servisHladaj">OK</button><button class="iconbtn" type="button" data-act="skenServis" aria-label="Skenovať">${svg('qr')}</button></div></div></div>
+    <div id="srvKarta" style="margin-top:12px"></div>`,
+  obnov(){
+    const el = $('#srvKarta'); if (!el) return;
+    const v = SERVIS.id ? V.vyd[SERVIS.id] : null;
+    if (!v) { el.innerHTML = `<div class="empty-state">Naskenujte QR kód na výdajníku alebo napíšte jeho číslo.</div>`; return; }
+    if (SERVIS.histPre !== v.id && !SERVIS.nacitava) {
+      SERVIS.nacitava = true;
+      api('historia', C.pin, v.id).then(h => { SERVIS.hist = h; SERVIS.histPre = v.id; }).catch(() => { SERVIS.histPre = v.id; SERVIS.hist = null; }).finally(() => { SERVIS.nacitava = false; if (C.tab === 'servis') TABS.servis.obnov(); });
+    }
+    const r = (a, b) => `<dt>${esc(a)}</dt><dd>${b ? esc(b) : '<span class="muted">—</span>'}</dd>`;
+    const riadky = servisRiadky(v);
+    const kody = rola() === 'sofer' ? CINNOSTI.filter(([k]) => k === 'P') : CINNOSTI;
+    let zaz = '';
+    if (SERVIS.zaznam) {
+      const c = CINNOSTI.find(x => x[0] === SERVIS.kod);
+      let extra = '';
+      if (SERVIS.kod === 'S') {
+        const kroky = SERVIS.variant === 'novy' ? KROKY_NOVY : KROKY_SANIT;
+        extra = `<div class="seg" style="margin-bottom:8px"><button type="button" data-act="srvVar" data-k="bezna" class="${SERVIS.variant === 'bezna' ? 'on' : ''}">Sanitácia</button><button type="button" data-act="srvVar" data-k="novy" class="${SERVIS.variant === 'novy' ? 'on' : ''}">Nový zabalený – kontrola</button></div>
+          ${kroky.map((k, i) => `<label class="checkrow"><input type="checkbox" data-krok="${SERVIS.variant + i}" ${SERVIS.kroky[SERVIS.variant + i] ? 'checked' : ''}><span>${esc(k)}</span></label>`).join('')}
+          <button class="btn small" type="button" data-act="srvVsetko" style="margin-top:6px">Označiť všetko</button>`;
+      } else if (SERVIS.kod === 'O') {
+        extra = `<div class="seg"><button type="button" data-act="srvVys" data-k="opraveny" class="${SERVIS.vysledok === 'opraveny' ? 'on' : ''}">Opravený</button><button type="button" data-act="srvVys" data-k="caka" class="${SERVIS.vysledok === 'caka' ? 'on' : ''}">Čaká na diel / servis</button></div>
+          <div class="fld" style="margin-top:10px"><label for="srvDiely">Použité diely</label><input type="text" id="srvDiely" data-sp="diely" value="${esc(SERVIS.diely)}" placeholder="napr. termostat, kohútik"></div>`;
+      } else if (SERVIS.kod === 'N') {
+        extra = `<div class="row">${DOVODY.map(d => `<button class="chip${SERVIS.dovod === d ? ' on' : ''}" type="button" data-act="srvDovod" data-k="${esc(d)}">${esc(d)}</button>`).join('')}</div>`;
+      }
+      const ok = SERVIS.kod && (SERVIS.kod !== 'S' || (SERVIS.variant === 'novy' ? KROKY_NOVY : KROKY_SANIT).every((_, i) => SERVIS.kroky[SERVIS.variant + i]));
+      zaz = `<div class="fxs">Výber činnosti</div>
+        <table class="vyber"><thead><tr><th style="width:70px">Kód</th><th>Názov činnosti</th></tr></thead><tbody>
+        ${kody.map(([k, , l]) => `<tr data-act="srvKod" data-k="${k}" class="${SERVIS.kod === k ? 'on' : ''}"><td><b>${k}</b></td><td>${esc(l)}</td></tr>`).join('')}</tbody></table>
+        ${SERVIS.kod ? `<div class="fxbox" style="display:grid;gap:10px">${extra}
+          <div class="fld"><label for="srvPopis">Popis servisu${SERVIS.kod === 'O' || SERVIS.kod === 'P' ? ' (povinný)' : ''}</label><input type="text" id="srvPopis" data-sp="popis" value="${esc(SERVIS.popis)}" placeholder="${SERVIS.kod === 'R' ? 'číslo revíznej správy, technik' : 'čo sa robilo, zistenia'}"></div>
+          <button class="btn ok big" type="button" data-act="srvUloz" ${ok ? '' : 'disabled'}>Uložiť – ${esc(c ? c[2] : '')}</button>
+          ${SERVIS.kod === 'S' && !ok ? '<div class="note">Tlačidlo sa odomkne po odškrtnutí všetkých krokov.</div>' : ''}</div>` : ''}`;
+    }
+    el.innerHTML = `<div class="fx"><div class="fxh"><div style="min-width:0;flex:1"><div class="vc">${esc(v.vc)}</div><div class="m">${esc(v.model)}${v.ev ? ' · ev. č. ' + esc(v.ev) : ''}</div></div>${pill(v.stav)}</div>
+      <dl class="dl">${r('Typ', v.model)}${r('Výrobné číslo', v.vc)}${r('Názov', v.nazov || 'Výdajník ' + v.model)}${jeRef() ? r('Cena', v.obstCena ? fmtE(num(v.obstCena)) : '') : ''}
+        ${r('Vlastník', v.vlastnik ? 'zákazník – ' + v.vlastnik : 'náš')}${r('Dátum zaradenia', fmtD(v.zaradenie))}${r('Dátum vyradenia', fmtD(v.vyradenie))}${r('Poznámka', v.pozn)}
+        <dt>Kde je</dt><dd>${esc(nazovMiesta(v.miesto))}${v.odKedy ? ' <span class="muted">od ' + esc(fmtD(v.odKedy)) + '</span>' : ''}</dd>${v.navrh ? r('Návrh na vyradenie', v.navrh) : ''}</dl>
+      <div class="fxs">Servis výdajníka</div>
+      ${riadky.length ? `<div class="tscroll"><table><thead><tr><th>Dátum</th><th>Činnosť</th><th>Popis</th><th>Technik</th></tr></thead><tbody>
+        ${riadky.map(x => `<tr${x.cak ? ' style="opacity:.75"' : ''}><td style="white-space:nowrap">${esc(fmtD(String(x.cas).slice(0, 10)))}</td><td>${esc(x.cin)}</td><td>${esc(x.popis)}</td><td>${esc(x.kto)}${x.cak ? ' ⏳' : ''}</td></tr>`).join('')}</tbody></table></div>`
+        : `<div class="fxbox muted">${SERVIS.nacitava ? 'Načítavam históriu…' : 'Bez záznamu.'}</div>`}
+      ${SERVIS.zaznam ? zaz : `<div class="fxbox"><button class="btn pri big" type="button" data-act="srvZaznam">Záznam servisu</button></div>`}
+      </div>
+      <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="vyd" data-id="${esc(v.id)}">Karta výdajníka a pohyby</button><button class="btn" type="button" data-act="srvNovy">Ďalší výdajník</button></div>`;
+  }
+};
+function servisNajdi(text){
+  const r = najdiVyd(text);
+  if (r.length === 1) { otvorServis(r[0].id); return true; }
+  toast(r.length ? 'Viac zhôd – napíšte celé číslo.' : 'Nenašiel som: ' + text, 3000);
+  return false;
+}
+function servisUloz(){
+  const c = CINNOSTI.find(x => x[0] === SERVIS.kod); if (!c) return;
+  const popis = SERVIS.popis.trim();
+  if ((SERVIS.kod === 'O' || SERVIS.kod === 'P') && !popis) return toast('Napíšte popis servisu.');
+  if (SERVIS.kod === 'N' && !SERVIS.dovod) return toast('Vyberte dôvod.');
+  const vys = SERVIS.kod === 'S' ? (SERVIS.variant === 'novy' ? 'nový – kontrola' : 'kompletná') : SERVIS.kod === 'O' ? SERVIS.vysledok : SERVIS.kod === 'N' ? SERVIS.dovod : '';
+  zmen({t:'servis', vyd:SERVIS.id, typ:c[1], vysledok:vys, popis, diely:SERVIS.kod === 'O' ? SERVIS.diely.trim() : ''});
+  vibr(); toast('Uložené: ' + c[2]);
+  if (SERVIS.zoSanit && SERVIS.kod === 'S') setTimeout(() => ACT.skenSanit(), 400);
+  Object.assign(SERVIS, {zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}});
+  TABS.servis.obnov();
+}
+$('#main').addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.sp) SERVIS[t.dataset.sp] = t.value;
+  if (t.dataset.krok) { SERVIS.kroky[t.dataset.krok] = t.checked; TABS.servis.obnov(); }
+});
+$('#main').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'srvVyd') { e.preventDefault(); servisNajdi(e.target.value); } });
+
+/* RÝCHLY VÝDAJ / ZVOZ bez úlohy: zákazník (pri výdaji) alebo sklad (pri zvoze) + skenovanie viacerých kusov */
+function vRychly(typ){
+  return {ziva:true, st:{typ, miesto:'', kam:mojSklad(), vc:'', zapisane:[], ids:[]},
+    hlavicka: st => ({nazov: st.typ === 'vydaj' ? 'Výdaj zákazníkovi' : rola() === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', sub:'naskenujte každý kus'}),
+    telo(st){
+      const m = miesto(st.miesto);
+      const kde = st.typ === 'vydaj'
+        ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(m.nazov)}</div><div class="sub">${esc([m.adresa, m.mesto].filter(Boolean).join(', '))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
+          : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>`
+        : `<div class="fld"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
+      const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
+      return `${kde}
+        <button class="btn pri big" type="button" data-act="rychlySken" ${pripraveny ? '' : 'disabled'}>${svg('qr')}Skenovať výdajníky</button>
+        <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="rychlyRucne" ${pripraveny ? '' : 'disabled'}>Zapísať</button></div>
+        ${st.zapisane.length ? `<div><b>Zapísané teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : ''}
+        ${st.ids.length ? '<button class="btn" type="button" data-act="podpisRychly">✍ Podpis zákazníka (voliteľné)</button>' : ''}
+        <p class="note" style="margin:0">Každý kus sa hneď zapíše (aj bez signálu – odošle sa neskôr). Pri zákazníkovi s úlohou použite radšej úlohu.</p>`;
+    }
+  };
+}
+function pohybRychly(st, text){
+  const typ = st.typ, r = najdiVyd(text);
+  if (!r.length) return {msg:'Nenašiel som: ' + text};
+  if (r.length > 1) return {msg:'Viac zhôd pre ' + text + ' – napíšte celé číslo.'};
+  const v = r[0];
+  // vyradený kus sa nesmie vrátiť do obehu; v oprave / na vyradenie nevydávať
+  if (v.stav === 'vyradeny') return {msg:v.vc + ' je VYRADENÝ – nevydávať ani neprijímať, odložte ho bokom a dajte vedieť referentke.'};
+  if ((typ === 'vydaj') && (v.stav === 'oprava' || v.stav === 'vyradenie')) return {msg:v.vc + ' je ' + STAVY[v.stav].toLowerCase() + ' – nevydávajte ho, vezmite iný kus.'};
+  if (st.typ === 'vydaj') {
+    if (v.stav === 'zakaznik' && v.miesto === st.miesto) return {msg:v.vc + ' už je u tohto zákazníka.'};
+    const op = {t:'pohyb', vyd:v.id, typ:'vydaj', kam:st.miesto}; zmen(op); st.ids.push(op.id);
+  } else {
+    if (SKLADOVE.includes(v.stav) && v.miesto === st.kam) return {msg:v.vc + ' už je na tomto sklade.'};
+    const op = {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam}; zmen(op); st.ids.push(op.id); if (!st.miesto && v.stav === 'zakaznik') st.miesto = v.miesto;
+    if (!C.sklad) { C.sklad = st.kam; ulozConf(); }
+  }
+  vibr();
+  const msg = (st.typ === 'vydaj' ? 'Vydané: ' : 'Prevzaté: ') + v.vc + ' · ' + v.model + (st.typ === 'vydaj' && v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '') + (st.typ === 'prijem' && v.stav === 'zakaznik' ? ' (od ' + nazovMiesta(v.miesto) + ')' : '');
+  st.zapisane.unshift(msg);
+  return {ok:true, msg};
+}
+
+/* HROMADNÝ PRESUN zo skladu na sklad (napr. pri prevzatí VODAX Lúka → BUDIŠ Lúka) */
+function vHromadnyPresun(z){
+  return {st:{z, kam:'', stavy:{pripraveny:true, spinavy:true, oprava:true, vyradenie:true, nezname:true}},
+    hlavicka: () => ({nazov:'Hromadný presun', sub:'z ' + esc(nazovMiesta(z))}),
+    telo(st){
+      const a = (V.poMieste[st.z] || []).filter(v => v.stav !== 'zakaznik');
+      const vyb = a.filter(v => st.stavy[v.stav]);
+      const pocet = k => a.filter(v => v.stav === k).length;
+      return `<div class="fld"><label>Na sklad</label>${fSel('kam', st, skladyOpts(true).filter(([k]) => k !== st.z), '— vyberte sklad —')}</div>
+        <div class="card" style="margin:0;padding:6px 14px">${['pripraveny','spinavy','oprava','vyradenie','nezname'].filter(k => pocet(k)).map(k =>
+          `<label class="checkrow"><input type="checkbox" data-f="s_${k}" ${st.stavy[k] ? 'checked' : ''}><span>${esc(STAVY[k])} – ${pocet(k)} ks</span></label>`).join('')}</div>
+        <p class="note" style="margin:0">Stav výdajníkov ostáva (pripravený ostane pripravený). Ku každému kusu sa zapíše pohyb „Presun“, takže je to dohľadateľné.</p>
+        <button class="btn pri" type="button" data-act="hromadnyOk" ${st.kam && vyb.length ? '' : 'disabled'}>Presunúť ${vyb.length} ks${st.kam ? ' na ' + esc(nazovMiesta(st.kam)) : ''}</button>`;
+    },
+    zmena(f, st){ if (f.startsWith('s_')) st.stavy[f.slice(2)] = st[f]; renderModal(); }
+  };
+}
+
+/* QR ŠTÍTKY pre Brother P-touch (páska 36 mm) – obrázok 62 × 36 mm pri 300 dpi */
+const qrText = v => v.ev ? jadro(v.id) + '  ' + v.ev : (v.vc || v.id);   // rovnaký tvar ako štítky VODAXu: „VČ  poradové/rok“
+function stitokObrazok(v){
+  const W = 732, H = 425, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  const d = document.createElement('div'); new QRCode(d, {text:qrText(v), width:340, height:340, correctLevel:QRCode.CorrectLevel.M});
+  const q = d.querySelector('canvas'); if (q) x.drawImage(q, 28, 42, 340, 340);
+  x.fillStyle = '#000'; x.textBaseline = 'top';
+  // text sa radšej zmenší, až potom skráti
+  const riadok = (t, y, px, tucne) => { let s = String(t || ''), v = px; const f = () => (tucne ? 'bold ' : '') + v + 'px Arial';
+    x.font = f(); while (v > 24 && x.measureText(s).width > 330) { v -= 2; x.font = f(); }
+    while (s && x.measureText(s).width > 330) s = s.slice(0, -1); x.fillText(s, 392, y); };
+  let y = 52;
+  riadok(jadro(v.id), y, 54, true); y += 70;
+  if (v.ev) { riadok('ev. č. ' + v.ev, y, 46, true); y += 74; } else y += 10;
+  const m = String(v.model || '').split(' '), r1 = [], r2 = [];
+  x.font = '34px Arial';
+  for (const w of m) { if (!r2.length && x.measureText(r1.concat(w).join(' ')).width <= 330) r1.push(w); else r2.push(w); }
+  riadok(r1.join(' '), y, 34); if (r2.length) { riadok(r2.join(' '), y + 40, 34); y += 40; }
+  riadok(v.vlastnik ? 'vlastník: ' + v.vlastnik : 'Lucka · BUDIŠ a. s.', Math.max(y + 82, 318), 30);
+  return c.toDataURL('image/png');
+}
+function vStitky(ids){
+  return {st:{ids},
+    hlavicka: st => ({nazov:'QR štítky', sub:st.ids.length + ' ks · páska 36 mm (Brother P-touch)'}),
+    telo(st){
+      if (!window.QRCode) return '<div class="warnbox">Knižnica na QR kódy sa ešte načítava – skúste o chvíľu.</div>';
+      st.obr = st.obr || st.ids.map(id => V.vyd[id]).filter(Boolean).map(v => ({id:v.id, png:stitokObrazok(v)}));
+      return `<div class="stitky">${st.obr.map(o => `<img src="${o.png}" alt="Štítok ${esc(o.id)}">`).join('')}</div>
+        <div class="actions two"><button class="btn pri" type="button" data-act="stitkyTlac">Tlačiť</button><button class="btn" type="button" data-act="stitkyPng">Stiahnuť obrázky (PNG)</button></div>
+        <p class="note" style="margin:0">Tlač: v okne tlače vyberte tlačiareň Brother a pásku 36 mm. Alebo stiahnite obrázky a vložte ich do P-touch Editora. Štítok nalepte vedľa výrobného štítku – QR prečíta aplikácia aj Flex.</p>`;
+    }
+  };
+}
+/** Ďalšie voľné evidenčné číslo v tomto roku (napr. 88/26). */
+function navrhniEv(){
+  const yy = String(new Date().getFullYear()).slice(2);
+  let max = 0;
+  for (const v of Object.values(V.vyd)) { const m = String(v.ev || '').match(/^(\d+)\/(\d+)$/); if (m && m[2] === yy) max = Math.max(max, +m[1]); }
+  return (max + 1) + '/' + yy;
+}
+
+/* PODPIS ZÁKAZNÍKA (voliteľný) – pri úlohe alebo pri rýchlom výdaji / zvoze */
+function vPodpis(o){
+  return {st:{meno:'', ciary:0}, o,
+    hlavicka: () => ({nazov:'Podpis zákazníka', sub:esc(nazovMiesta(o.miesto)) + ' · ' + o.pohyby.length + ' ' + sk(o.pohyby.length, 'výdajník', 'výdajníky', 'výdajníkov')}),
+    telo: st => `<div class="note" style="margin:0">Zákazník sa podpíše prstom do bieleho poľa. Podpis je voliteľný.</div>
+      <canvas class="podpis-plocha" id="podpisPlocha"></canvas>
+      <div class="fld"><label for="podpisMeno">Meno podpisujúceho</label><input type="text" id="podpisMeno" ${fIn('meno', st, 'autocomplete="off"')}></div>
+      <div class="actions two"><button class="btn" type="button" data-act="podpisVymaz">Vymazať</button><button class="btn ok" type="button" data-act="podpisUloz">Uložiť podpis</button></div>`,
+    po(st){
+      const c = $('#podpisPlocha'), r = c.getBoundingClientRect();
+      c.width = Math.round(r.width); c.height = Math.round(r.height);
+      const x = c.getContext('2d'); x.lineWidth = 2.6; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#0b1d33';
+      let kreslim = false;
+      const bod = e => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+      c.onpointerdown = e => { kreslim = true; c.setPointerCapture(e.pointerId); const [a, b] = bod(e); x.beginPath(); x.moveTo(a, b); st.ciary++; };
+      c.onpointermove = e => { if (!kreslim) return; const [a, b] = bod(e); x.lineTo(a, b); x.stroke(); };
+      c.onpointerup = c.onpointercancel = () => { kreslim = false; };
+    }
+  };
+}
+
+/* ---------- modálne okná (zásobník) ---------- */
+const STACK = [];
+function otvor(view){ view.st = view.st || {}; STACK.push(view); renderModal(); $('#modal').classList.add('on'); $('#sheet').scrollTop = 0; }
+function nahrad(view){ STACK.pop(); otvor(view); }
+function spat(){ STACK.pop(); if (!STACK.length) return zavriModal(); renderModal(); }
+function zavriModal(){ STACK.length = 0; $('#modal').classList.remove('on'); $('#sheet').innerHTML = ''; }
+function renderModal(){
+  const v = STACK[STACK.length - 1]; if (!v) return;
+  const sc = $('#sheet').scrollTop;
+  const hd = v.hlavicka ? v.hlavicka(v.st) : {nazov:'', sub:''};
+  $('#sheet').innerHTML = `<div class="hd">${STACK.length > 1 ? '<button class="back" type="button" data-act="spat" aria-label="Späť">‹</button>' : ''}
+    <div class="tt"><h2>${hd.nazov}</h2>${hd.sub ? `<div class="sub">${hd.sub}</div>` : ''}</div><button class="x" type="button" data-act="zavri" aria-label="Zavrieť">×</button></div>
+    <div class="bd">${v.telo(v.st)}</div>`;
+  $('#sheet').scrollTop = sc;
+  if (v.po) v.po(v.st);
+}
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') zavriModal(); });
+// formuláre: <input data-f="pole"> sa ukladá do st aktuálneho okna
+$('#sheet').addEventListener('input', e => { const f = e.target.dataset.f; if (!f) return; const v = STACK[STACK.length - 1]; if (v) v.st[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; if (v && v.zmena) v.zmena(f, v.st); });
+$('#sheet').addEventListener('change', e => { const f = e.target.dataset.f; if (!f) return; const v = STACK[STACK.length - 1]; if (v) v.st[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; if (v && v.zmena) v.zmena(f, v.st); });
+const fIn = (f, st, attrs) => `value="${esc(st[f] ?? '')}" data-f="${f}" ${attrs || ''}`;
+const fSel = (f, st, opts, prazdna) => `<select data-f="${f}">${prazdna != null ? `<option value="">${esc(prazdna)}</option>` : ''}${opts.map(([k, l]) => `<option value="${esc(k)}"${String(st[f] ?? '') === String(k) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+const skladyOpts = (bezNez) => sklady().filter(s => !bezNez || s.id !== NEZ).map(s => [s.id, s.nazov]);
+
+/* karta výdajníka */
+function vKartaVyd(id){
+  return {ziva:true, st:{id},
+    hlavicka(st){ const v = V.vyd[st.id] || {}; return {nazov:`<span class="mono">${esc(v.vc || st.id)}</span>`, sub:esc([v.model, v.ev ? 'ev. č. ' + v.ev : ''].filter(Boolean).join(' · '))}; },
+    telo(st){
+      const v = V.vyd[st.id];
+      if (!v) return '<div class="empty-state">Výdajník nie je v evidencii.</div>';
+      const m = miesto(v.miesto), r = rola(), a = [];
+      const naSklade = SKLADOVE.includes(v.stav) || v.stav === 'nezname';
+      const btn = (act, l, cls, extra) => `<button class="btn ${cls || ''}" type="button" data-act="${act}" data-id="${esc(v.id)}" ${extra || ''}>${l}</button>`;
+      if (v.stav !== 'vyradeny') {
+        if (v.stav === 'zakaznik') a.push(btn('fPohyb', 'Prevziať od zákazníka', 'pri', 'data-typ="prijem"'));
+        if (naSklade) a.push(btn('fPohyb', 'Vydať zákazníkovi', v.stav === 'pripraveny' ? 'pri' : '', 'data-typ="vydaj"'));
+        if (naSklade) a.push(btn('fPohyb', 'Presunúť na iný sklad', '', 'data-typ="presun"'));
+        if (r !== 'sofer') {
+          a.push(btn('fServis', 'Sanitácia hotová', v.stav === 'spinavy' ? 'ok' : '', 'data-typ="sanitacia"'));
+          a.push(btn('fServis', 'Oprava', '', 'data-typ="oprava"'));
+          a.push(v.navrh ? btn('fServis', 'Zrušiť návrh na vyradenie', '', 'data-typ="zrusNavrh"') : btn('fServis', 'Návrh na vyradenie', 'danger', 'data-typ="navrh"'));
+        } else a.push(btn('fServis', 'Nahlásiť poruchu', 'danger', 'data-typ="porucha"'));
+        if (jeRef()) { a.push(btn('fServis', 'Revízia', '', 'data-typ="revizia"')); a.push(btn('fServis', 'Vyradiť z evidencie', 'danger', 'data-typ="vyradenie"')); }
+      }
+      if (jeRef()) a.push(btn('fInventura', 'Opraviť stav / miesto'));
+      if (jeSanit()) a.push(btn('fVyd', 'Upraviť údaje'));
+      a.unshift(btn('servisZKarty', 'Servis (ako vo Flexe)', ''));
+      a.push(`<button class="btn" type="button" data-act="fotkaPridaj" data-id="${esc(v.id)}">Pridať fotku</button>`);
+      if (jeSanit()) a.push(btn('stitky', 'Štítok s QR kódom'));
+      const lok = Object.values(V.poh).filter(p => p.vyd === v.id).map(p => ({cas:p.cas, h:hrowPohyb(p)}))
+        .concat(Object.values(V.ser).filter(s => s.vyd === v.id).map(s => ({cas:s.cas, h:hrowServis(s)})));
+      const cela = st.historia ? st.historia.pohyby.map(p => ({cas:p.cas, h:hrowPohyb(p), id:p.id})).concat(st.historia.servis.map(s => ({cas:s.cas, h:hrowServis(s), id:s.id}))) : null;
+      let hist = cela ? cela.concat(lok.filter(x => !cela.some(c => c.cas === x.cas))) : lok;
+      hist = hist.sort((x, y) => y.cas.localeCompare(x.cas));
+      let spin = {};
+      try { spin = v.spin ? JSON.parse(v.spin) : {}; } catch(e) {}
+      const fotky = v.fotky ? String(v.fotky).split(',').filter(Boolean) : [];
+      const msan = mesiacov(v.sanitacia);
+      return `<div class="stavbox">${pill(v.stav)}<span class="kde">${m ? `<a href="#" data-act="miesto" data-id="${esc(m.id)}">${esc(m.nazov)}</a>` : esc(v.miesto || '—')}</span>
+          <span class="muted small">${m && m.mesto ? esc(m.mesto) + ' · ' : ''}${v.odKedy ? 'od ' + esc(fmtD(v.odKedy)) : ''}</span></div>
+        ${v.navrh ? `<div class="warnbox">Návrh na vyradenie: <b>${esc(v.navrh)}</b></div>` : ''}
+        ${v.stav === 'zakaznik' && Math.min(mesiacov(v.odKedy) ?? 999, msan ?? 999) >= SRV.meta.sanitMesiacov ? `<div class="warnbox">U zákazníka dlhšie ako ${esc(SRV.meta.sanitMesiacov)} mesiacov bez sanitácie – na výmenu.</div>` : ''}
+        ${v.cak ? '<div class="note">Zmena čaká na odoslanie.</div>' : ''}
+        <div class="actions two">${a.join('')}</div>
+        <dl class="dl">
+          <dt>Model</dt><dd>${esc(v.model || v.nazov)}</dd>
+          <dt>Vlastník</dt><dd>${v.vlastnik ? 'zákazník – ' + esc(v.vlastnik) : 'náš'}</dd>
+          <dt>Posledná sanitácia</dt><dd>${v.sanitacia ? esc(fmtD(v.sanitacia)) + ' <span class="muted">(' + esc(vek(v.sanitacia)) + ')</span>' : '—'}</dd>
+          <dt>Posledná oprava</dt><dd>${v.oprava ? esc(fmtD(v.oprava)) : '—'}</dd>
+          <dt>Revízia</dt><dd>${v.revizia ? esc(fmtD(v.revizia)) : '—'}</dd>
+          <dt>Zaradený</dt><dd>${esc(fmtD(v.zaradenie)) || '—'}${v.rok ? ' · rok ' + esc(v.rok) : ''}</dd>
+          ${v.vyradenie ? `<dt>Vyradený</dt><dd>${esc(fmtD(v.vyradenie))}</dd>` : ''}
+          ${jeRef() && v.obstCena ? `<dt>Obstarávacia cena</dt><dd>${esc(fmtE(num(v.obstCena)))}</dd>` : ''}
+          ${v.pozn ? `<dt>Poznámka</dt><dd style="white-space:pre-wrap">${esc(v.pozn)}</dd>` : ''}
+        </dl>
+        ${fotky.length ? `<div class="row">${fotky.map((f, i) => `<button class="btn small" type="button" data-act="fotkaUkaz" data-f="${esc(f)}">Fotka ${i + 1}</button>`).join('')}</div>` : ''}
+        ${Object.keys(spin).length ? `<details><summary>Údaje zo SPIN (stav k importu)</summary><dl class="dl" style="margin-top:8px">${Object.entries(spin).map(([k, x]) => `<dt>${esc(k)}</dt><dd style="white-space:pre-wrap">${esc(x)}</dd>`).join('')}</dl></details>` : ''}
+        <div><div class="row" style="justify-content:space-between"><b>História</b>${cela ? '' : `<button class="btn small" type="button" data-act="historia" data-id="${esc(v.id)}">Načítať celú históriu</button>`}</div>
+        <div class="hist" style="margin-top:8px">${hist.length ? hist.map(x => x.h).join('') : '<div class="note">V mobile sú len posledné týždne. Celú históriu načítate tlačidlom.</div>'}</div></div>`;
+    }
+  };
+}
+
+/* výdaj / prevzatie / presun */
+function vFormPohyb(id, typ, preset){
+  const v0 = V.vyd[id];
+  const st = Object.assign({id, typ, kam: typ === 'vydaj' ? '' : typ === 'prijem' ? mojSklad() : '', dl:'', pozn:'', porucha:false}, preset || {});
+  if (typ === 'presun' && v0 && st.kam === v0.miesto) st.kam = '';
+  return {st,
+    hlavicka: st => ({nazov:esc(TYPY_POHYBU[st.typ]), sub:`<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span> · ${esc((V.vyd[st.id] || {}).model || '')}`}),
+    telo(st){
+      const v = V.vyd[st.id], m = miesto(st.kam);
+      let kde;
+      if (st.typ === 'vydaj') kde = `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(m.nazov)}</div><div class="sub">${esc([m.adresa, m.mesto].filter(Boolean).join(', '))}</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik">Zmeniť</button></div>`
+        : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" style="width:100%">Vybrať zákazníka</button>'}</div>`;
+      else kde = `<div class="fld"><label>${st.typ === 'prijem' ? 'Na sklad' : 'Na sklad'}</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
+      const varov = st.typ === 'vydaj' && v.stav === 'spinavy' ? '<div class="warnbox">Výdajník čaká na sanitáciu – naozaj ho vydať?</div>'
+        : st.typ === 'vydaj' && (v.stav === 'oprava' || v.stav === 'vyradenie') ? '<div class="warnbox">Výdajník je v oprave / na vyradenie.</div>' : '';
+      return `${varov}<div class="note">Teraz: ${pill(v.stav)} ${esc(nazovMiesta(v.miesto))}</div>${kde}
+        <div class="fld"><label>Číslo dodacieho listu (ak je)</label><input type="text" ${fIn('dl', st)}></div>
+        <div class="fld"><label>Poznámka</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. poškodený kryt, zákazník nebol…"')}></div>
+        ${st.typ === 'prijem' ? `<label class="checkrow"><input type="checkbox" data-f="porucha" ${st.porucha ? 'checked' : ''}><span>Výdajník je pokazený – zapíše sa aj hlásenie poruchy (popíšte v poznámke)</span></label>` : ''}
+        <button class="btn pri" type="button" data-act="ulozPohyb">Uložiť</button>`;
+    }
+  };
+}
+function ulozPohyb(st){
+  if (!st.kam) return toast(st.typ === 'vydaj' ? 'Vyberte zákazníka.' : 'Vyberte sklad.');
+  zmen({t:'pohyb', vyd:st.id, typ:st.typ, kam:st.kam, dl:st.dl.trim(), pozn:st.pozn.trim(), uloha:st.uloha || ''});
+  if (st.porucha) zmen({t:'servis', vyd:st.id, typ:'porucha', popis:st.pozn.trim() || 'pokazený pri prevzatí'});
+  if (st.typ === 'prijem' && !C.sklad) { C.sklad = st.kam; ulozConf(); }
+  vibr(); toast(TYPY_POHYBU[st.typ] + ' uložený');
+  spat();
+}
+
+/* výber zákazníka / skladu */
+function vVyberMiesta(typ, cb){
+  return {st:{q:''},
+    hlavicka: () => ({nazov: typ === 'sklad' ? 'Vyberte sklad' : 'Vyberte zákazníka'}),
+    telo: st => `<input type="search" ${fIn('q', st, 'placeholder="Názov, mesto, ulica, IČO…" id="vmQ"')}><div id="vmList"></div>`,
+    po(st){ this.zmena('q', st); const i = $('#vmQ'); if (i && matchMedia('(pointer:fine)').matches) i.focus(); },
+    zmena(f, st){ if (f !== 'q') return; const r = hladajMiesta(st.q, typ, 50);
+      $('#vmList').innerHTML = zoznam(r, m => itemMiesto(m).replace('data-act="miesto"', 'data-act="vyberMiestoOk"'), 'Nič sa nenašlo.'); },
+    cb};
+}
+
+/* servis */
+function vFormServis(id, typ){
+  const st = {id, typ, kroky:{}, variant:'bezna', popis:'', diely:'', vysledok: typ === 'oprava' ? 'opraveny' : '', dovod:''};
+  return {st,
+    hlavicka: st => ({nazov:esc(TYPY_SERVISU[st.typ]), sub:`<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span> · ${esc((V.vyd[st.id] || {}).model || '')}`}),
+    telo(st){
+      const v = V.vyd[st.id];
+      let h = `<div class="note">Teraz: ${pill(v.stav)} ${esc(nazovMiesta(v.miesto))}${v.sanitacia ? ' · posledná sanitácia ' + esc(fmtD(v.sanitacia)) : ''}</div>`;
+      if (st.typ === 'sanitacia') {
+        const kroky = st.variant === 'novy' ? KROKY_NOVY : KROKY_SANIT;
+        const hotovo = kroky.every((_, i) => st.kroky[st.variant + i]);
+        h += `<div class="seg"><button type="button" data-act="sVar" data-k="bezna" class="${st.variant === 'bezna' ? 'on' : ''}">Sanitácia</button><button type="button" data-act="sVar" data-k="novy" class="${st.variant === 'novy' ? 'on' : ''}">Nový zabalený – len kontrola</button></div>
+          <div class="card" style="margin:0;padding:6px 14px">${kroky.map((k, i) => `<label class="checkrow"><input type="checkbox" data-f="k_${st.variant}${i}" ${st.kroky[st.variant + i] ? 'checked' : ''}><span>${esc(k)}</span></label>`).join('')}</div>
+          <button class="btn small" type="button" data-act="sVsetko">Označiť všetko</button>
+          <div class="fld"><label>Poznámka (vymenené diely, zistenia)</label><input type="text" ${fIn('popis', st)}></div>
+          <button class="btn ok" type="button" data-act="ulozServis" ${hotovo ? '' : 'disabled'}>Sanitácia hotová – pripravený na výdaj</button>
+          ${hotovo ? '' : '<p class="note" style="margin:0">Tlačidlo sa odomkne po odškrtnutí všetkých krokov.</p>'}`;
+      } else if (st.typ === 'oprava') {
+        h += `<div class="fld"><label>Čo bolo pokazené a čo sa urobilo</label><textarea ${'data-f="popis"'}>${esc(st.popis)}</textarea></div>
+          <div class="fld"><label>Použité diely</label><input type="text" ${fIn('diely', st, 'placeholder="napr. termostat, kohútik studená"')}></div>
+          <div class="fld"><label>Výsledok</label><div class="seg"><button type="button" data-act="sVys" data-k="opraveny" class="${st.vysledok === 'opraveny' ? 'on' : ''}">Opravený</button><button type="button" data-act="sVys" data-k="caka" class="${st.vysledok === 'caka' ? 'on' : ''}">Čaká na diel / servis</button></div></div>
+          <p class="note" style="margin:0">${st.vysledok === 'caka' ? 'Výdajník bude v stave „V oprave“.' : 'Ak bol v oprave, prejde do stavu „Čaká na sanitáciu“.'}</p>
+          <button class="btn pri" type="button" data-act="ulozServis">Uložiť opravu</button>`;
+      } else if (st.typ === 'navrh') {
+        h += `<div class="fld"><label>Dôvod</label><div class="row">${DOVODY.map(d => `<button class="chip${st.dovod === d ? ' on' : ''}" type="button" data-act="sDovod" data-k="${esc(d)}">${esc(d)}</button>`).join('')}</div></div>
+          <div class="fld"><label>Popis</label><input type="text" ${fIn('popis', st, 'placeholder="napr. oprava chladenia nad 200 €"')}></div>
+          <p class="note" style="margin:0">Výdajník sa odloží do stavu „Na vyradenie“. Vyradiť z evidencie ho môže referentka.</p>
+          <button class="btn pri" type="button" data-act="ulozServis">Uložiť návrh</button>`;
+      } else if (st.typ === 'vyradenie') {
+        h += `<div class="warnbox">Výdajník sa vyradí z evidencie (stav Vyradený). Robí sa po schválení vyradenia.</div>
+          <div class="fld"><label>Dôvod / číslo protokolu o vyradení</label><input type="text" ${fIn('popis', st)}></div>
+          <button class="btn pri" type="button" data-act="ulozServis">Vyradiť</button>`;
+      } else {
+        const l = {revizia:'Číslo revíznej správy, technik', porucha:'Čo nefunguje', zrusNavrh:'Prečo sa návrh ruší'}[st.typ] || 'Popis';
+        h += `<div class="fld"><label>${esc(l)}</label><input type="text" ${fIn('popis', st)}></div>
+          <button class="btn pri" type="button" data-act="ulozServis">Uložiť</button>`;
+      }
+      return h;
+    },
+    zmena(f, st){ if (f.startsWith('k_')) { st.kroky[f.slice(2)] = st[f]; renderModal(); } }
+  };
+}
+function ulozServis(st){
+  let popis = st.popis.trim(), vys = '';
+  if (st.typ === 'sanitacia') { vys = st.variant === 'novy' ? 'nový – kontrola' : 'kompletná'; }
+  if (st.typ === 'oprava') { if (!popis) return toast('Popíšte opravu.'); vys = st.vysledok; }
+  if (st.typ === 'navrh') { if (!st.dovod) return toast('Vyberte dôvod.'); vys = st.dovod; }
+  if (st.typ === 'porucha' && !popis) return toast('Popíšte poruchu.');
+  zmen({t:'servis', vyd:st.id, typ:st.typ, vysledok:vys, popis, diely:(st.diely || '').trim()});
+  vibr(); toast('Uložené: ' + TYPY_SERVISU[st.typ]);
+  if (SKEN.rezim === 'sanit' && st.typ === 'sanitacia') { zavriModal(); setTimeout(() => ACT.skenSanit(), 250); return; }
+  SKEN.rezim = '';
+  spat();
+}
+
+/* oprava stavu (inventúra) – referentky */
+function vFormInventura(id){
+  const v = V.vyd[id];
+  return {st:{id, stav:v.stav === 'vyradeny' ? 'pripraveny' : v.stav, kam:v.miesto, pozn:''},
+    hlavicka: st => ({nazov:'Opraviť stav / miesto', sub:`<span class="mono">${esc(v.vc)}</span>`}),
+    telo(st){
+      const m = miesto(st.kam);
+      return `<p class="note" style="margin:0">Použite, keď sa skutočnosť líši od evidencie (inventúra, chyba v SPIN). Zapíše sa ako pohyb „Oprava stavu“.</p>
+        <div class="fld"><label>Stav</label>${fSel('stav', st, Object.keys(STAVY).filter(k => k !== 'vyradeny').map(k => [k, STAVY[k]]))}</div>
+        <div class="fld"><label>Miesto</label><div class="item"><div class="main"><div class="name">${esc(m ? m.nazov : st.kam || '—')}</div><div class="sub">${esc(m ? (m.typ === 'sklad' ? 'sklad' : m.mesto) : '')}</div></div>
+          <button class="btn small" type="button" data-act="vyberMiesto" data-typ="sklad">Sklad</button><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik">Zákazník</button></div></div>
+        <div class="fld"><label>Poznámka</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. nájdený pri inventúre v BA"')}></div>
+        <button class="btn pri" type="button" data-act="ulozInventura">Uložiť</button>`;
+    }
+  };
+}
+
+/* nový / úprava výdajníka */
+function vFormVyd(id, vc){
+  const v = id ? V.vyd[id] : null;
+  const st = v ? {vc:v.vc, ev:v.ev, model:v.model, rok:v.rok, vlastnik:v.vlastnik, obstCena:v.obstCena, pozn:v.pozn}
+    : {vc:vc || '', ev:navrhniEv(), model:'', rok:String(new Date().getFullYear()), vlastnik:'', obstCena:'', pozn:'', stav:'pripraveny', kam:mojSklad()};
+  const modely = [...new Set(Object.values(V.vyd).map(x => x.model).filter(Boolean))].sort();
+  return {st,
+    hlavicka: () => ({nazov: v ? 'Upraviť údaje' : 'Nový výdajník', sub: v ? `<span class="mono">${esc(v.vc)}</span>` : 'nie je v evidencii zo SPIN'}),
+    telo: st => `${v ? '' : `<div class="fld"><label>Výrobné číslo (ako na QR štítku)</label><input type="text" ${fIn('vc', st, 'class="mono"')}></div>`}
+      <div class="grid2"><div class="fld"><label>Evidenčné číslo</label><input type="text" ${fIn('ev', st, 'placeholder="230/19"')}></div><div class="fld"><label>Rok</label><input type="text" inputmode="numeric" ${fIn('rok', st)}></div></div>
+      <div class="fld"><label>Model</label><input type="text" list="modely" ${fIn('model', st, 'placeholder="DK2VHC66L WHITE 2024"')}><datalist id="modely">${modely.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+      <div class="fld"><label>Vlastník (prázdne = náš; inak názov zákazníka)</label><input type="text" ${fIn('vlastnik', st)}></div>
+      ${jeRef() ? `<div class="fld"><label>Obstarávacia cena €</label><input type="text" inputmode="decimal" ${fIn('obstCena', st)}></div>` : ''}
+      ${v ? '' : `<div class="grid2"><div class="fld"><label>Stav</label>${fSel('stav', st, [['pripraveny', STAVY.pripraveny], ['spinavy', STAVY.spinavy], ['oprava', STAVY.oprava]])}</div>
+        <div class="fld"><label>Sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte —')}</div></div>`}
+      <div class="fld"><label>Poznámka</label><textarea data-f="pozn">${esc(st.pozn)}</textarea></div>
+      <button class="btn pri" type="button" data-act="ulozVyd" data-id="${esc(id || '')}">Uložiť</button>`
+  };
+}
+
+/* karta miesta */
+function vKartaMiesta(id){
+  return {ziva:true, st:{id},
+    hlavicka(st){ const m = V.mie[st.id] || {nazov:st.id}; return {nazov:esc(m.nazov || st.id), sub:esc(m.typ === 'sklad' ? 'Sklad' : [m.adresa, m.psc, m.mesto].filter(Boolean).join(', '))}; },
+    telo(st){
+      const m = V.mie[st.id];
+      if (!m) return '<div class="empty-state">Miesto nie je v evidencii.</div>';
+      const a = (V.poMieste[m.id] || []).slice().sort((x, y) => String(x.odKedy).localeCompare(String(y.odKedy)));
+      const ul = otvoreneUlohy().filter(u => u.miesto === m.id);
+      const adr = [m.adresa, m.psc, m.mesto].filter(Boolean).join(', ');
+      const poh = Object.values(V.poh).filter(p => p.kam === m.id || p.z === m.id).sort((x, y) => y.cas.localeCompare(x.cas)).slice(0, 15);
+      const poStavoch = Object.keys(STAVY).map(k => [k, a.filter(v => v.stav === k).length]).filter(x => x[1]);
+      return `<div class="row">${poStavoch.map(([k, n]) => `<span class="pill ${PILL[k]}">${esc(STAVY[k])}: ${n}</span>`).join(' ') || '<span class="note">Žiadne výdajníky.</span>'}</div>
+        <dl class="dl">
+          ${m.typ !== 'sklad' ? `<dt>Adresa</dt><dd>${esc(adr) || '—'}${adr ? ` · <a href="${MAPY}${encodeURIComponent(m.nazov + ', ' + adr)}" target="_blank" rel="noopener">mapa</a>` : ''}</dd>
+          <dt>IČO</dt><dd>${esc(m.ico) || '—'}</dd>
+          ${m.fakt ? `<dt>Fakturácia</dt><dd>${esc(m.fakt)}${m.faktIco ? ', IČO ' + esc(m.faktIco) : ''}${m.faktAdresa ? '<br>' + esc(m.faktAdresa) : ''}</dd>` : ''}` : ''}
+          <dt>Kontakt</dt><dd>${esc(m.kontakt) || '—'}</dd>
+          <dt>Telefón</dt><dd>${m.telefon ? `<a href="tel:${esc(m.telefon.replace(/\s/g, ''))}">${esc(m.telefon)}</a>` : '—'}</dd>
+          ${m.email ? `<dt>E-mail</dt><dd><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></dd>` : ''}
+          ${m.pozn ? `<dt>Poznámka</dt><dd style="white-space:pre-wrap">${esc(m.pozn)}</dd>` : ''}
+          <dt>Kód vo SPIN</dt><dd class="mono">${esc(m.id)}</dd>
+        </dl>
+        <div class="actions two"><button class="btn" type="button" data-act="fMiesto" data-id="${esc(m.id)}">${jeRef() ? 'Upraviť údaje' : 'Doplniť kontakt / poznámku'}</button>
+          ${jeRef() && m.typ !== 'sklad' ? `<button class="btn pri" type="button" data-act="novaUloha" data-miesto="${esc(m.id)}">Nová úloha pre šoféra</button>` : ''}
+          ${jeRef() && m.typ === 'sklad' && a.length ? `<button class="btn" type="button" data-act="hromadnyPresun" data-id="${esc(m.id)}">Presunúť výdajníky na iný sklad</button>` : ''}</div>
+        ${ul.length ? `<div><b>Otvorené úlohy</b><div class="list" style="margin-top:8px">${ul.map(itemUloha).join('')}</div></div>` : ''}
+        <div><b>Výdajníky na mieste (${a.length})</b><div style="margin-top:8px">${zoznam(a.slice(0, st.vsetky ? 9999 : 40), v => itemVyd(v), 'Žiadne.')}</div>
+          ${a.length > 40 && !st.vsetky ? '<button class="btn more" type="button" data-act="mVsetky">Zobraziť všetky</button>' : ''}</div>
+        ${poh.length ? `<div><b>Posledné pohyby</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div></div>` : ''}`;
+    }
+  };
+}
+function vFormMiesto(id, typ){
+  const m = id ? V.mie[id] : null;
+  const st = m ? Object.assign({}, m) : {id:'', typ:typ || 'zakaznik', nazov:'', ico:'', adresa:'', psc:'', mesto:'', fakt:'', faktIco:'', faktAdresa:'', kontakt:'', telefon:'', email:'', pozn:''};
+  const ref = jeRef();
+  return {st,
+    hlavicka: st => ({nazov: m ? esc(m.nazov) : st.typ === 'sklad' ? 'Nový sklad' : 'Nový zákazník / odberné miesto'}),
+    telo: st => (ref ? `${m ? '' : `<div class="fld"><label>Kód (krátky, jedinečný – napr. ako vo SPIN)</label><input type="text" ${fIn('id', st)}></div>`}
+      <div class="fld"><label>Názov</label><input type="text" ${fIn('nazov', st)}></div>
+      ${st.typ !== 'sklad' ? `<div class="grid2"><div class="fld"><label>IČO</label><input type="text" ${fIn('ico', st)}></div><div class="fld"><label>PSČ</label><input type="text" ${fIn('psc', st)}></div></div>
+      <div class="fld"><label>Ulica</label><input type="text" ${fIn('adresa', st)}></div><div class="fld"><label>Mesto</label><input type="text" ${fIn('mesto', st)}></div>
+      <div class="fld"><label>Fakturačná firma</label><input type="text" ${fIn('fakt', st)}></div>
+      <div class="grid2"><div class="fld"><label>IČO fakturačnej</label><input type="text" ${fIn('faktIco', st)}></div><div class="fld"><label>Adresa fakturačnej</label><input type="text" ${fIn('faktAdresa', st)}></div></div>` : ''}` : '') +
+      `<div class="fld"><label>Kontaktná osoba</label><input type="text" ${fIn('kontakt', st)}></div>
+      <div class="grid2"><div class="fld"><label>Telefón</label><input type="tel" ${fIn('telefon', st)}></div><div class="fld"><label>E-mail</label><input type="email" ${fIn('email', st)}></div></div>
+      <div class="fld"><label>Poznámka (napr. kde výdajník stojí, otváracie hodiny)</label><textarea data-f="pozn">${esc(st.pozn)}</textarea></div>
+      <button class="btn pri" type="button" data-act="ulozMiesto" data-id="${esc(id || '')}">Uložiť</button>`
+  };
+}
+
+/* úlohy */
+function vKartaUlohy(id){
+  return {ziva:true, st:{id, vc:'', kam:mojSklad()},
+    hlavicka(st){ const u = V.ul[st.id] || {}; return {nazov:esc((TYPY_ULOH[u.typ] || 'Úloha') + ' · ' + nazovMiesta(u.miesto)), sub:esc([u.termin ? 'termín ' + fmtD(u.termin) : '', u.pre ? 'pre ' + u.pre : 'ktokoľvek', u.zadal ? 'zadal(a) ' + u.zadal : ''].filter(Boolean).join(' · '))}; },
+    telo(st){
+      const u = V.ul[st.id]; if (!u) return '<div class="empty-state">Úloha neexistuje.</div>';
+      const m = miesto(u.miesto) || {nazov:u.miesto, id:u.miesto};
+      const adr = [m.adresa, m.psc, m.mesto].filter(Boolean).join(', ');
+      const poh = Object.values(V.poh).filter(p => p.uloha === u.id).sort((x, y) => x.cas.localeCompare(y.cas));
+      const tam = (V.poMieste[m.id] || []);
+      const otv = u.stav === 'nova';
+      return `${u.popis ? `<div class="card" style="margin:0;white-space:pre-wrap">${esc(u.popis)}</div>` : ''}
+        <dl class="dl"><dt>Zákazník</dt><dd><a href="#" data-act="miesto" data-id="${esc(m.id)}">${esc(m.nazov)}</a></dd>
+          <dt>Adresa</dt><dd>${esc(adr) || '—'}${adr ? ` · <a href="${MAPY}${encodeURIComponent(m.nazov + ', ' + adr)}" target="_blank" rel="noopener">navigovať</a>` : ''}</dd>
+          ${m.kontakt || m.telefon ? `<dt>Kontakt</dt><dd>${esc(m.kontakt || '')} ${m.telefon ? `<a href="tel:${esc(String(m.telefon).replace(/\s/g, ''))}">${esc(m.telefon)}</a>` : ''}</dd>` : ''}
+          ${m.pozn ? `<dt>Poznámka</dt><dd>${esc(m.pozn)}</dd>` : ''}
+          <dt>Počet</dt><dd>${u.pocet ? esc(u.pocet) + ' ks' : '—'}</dd>
+          <dt>Teraz u zákazníka</dt><dd>${tam.filter(v => v.stav === 'zakaznik').length} ks</dd>
+          ${u.stav === 'hotova' ? `<dt>Hotovo</dt><dd>${esc(fmtCas(u.hotovo))} · ${esc(u.hotovoKto)}${u.hotovoPozn ? ' · ' + esc(u.hotovoPozn) : ''}</dd>` : ''}
+          ${u.podpis ? `<dt>Podpis</dt><dd>✍ ${esc(u.podpis.split('|')[0])}${u.podpis.split('|')[1] ? ` · <a href="#" data-act="podpisUkaz" data-pf="${esc(u.podpis.split('|')[1])}">zobraziť</a>` : ' · čaká na odoslanie'}</dd>` : ''}</dl>
+        ${otv ? `<div class="card" style="margin:0"><h3>Výdajníky k úlohe</h3>
+          <div class="actions two"><button class="btn pri" type="button" data-act="skenUloha" data-typ="vydaj">Vydať – skenovať</button><button class="btn pri" type="button" data-act="skenUloha" data-typ="prijem">Prevziať – skenovať</button></div>
+          <div class="fld" style="margin-top:10px"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>
+          <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="ulohaRucne" data-typ="vydaj">Vydať</button><button class="btn small" type="button" data-act="ulohaRucne" data-typ="prijem">Prevziať</button></div></div>` : ''}
+        ${poh.length ? `<div><b>Zapísané pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div></div>` : ''}
+        ${otv ? `<div class="fld"><label>Poznámka k vybaveniu</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. zákazník nebol, prídem zajtra"')}></div>
+          <div class="actions two">${poh.length && !u.podpis ? '<button class="btn" type="button" data-act="podpisUloha">✍ Podpis zákazníka (voliteľné)</button>' : ''}<button class="btn ok" type="button" data-act="ulohaHotovo">Úloha hotová</button></div>` : `${poh.length && !u.podpis ? '<button class="btn" type="button" data-act="podpisUloha">✍ Podpis zákazníka (voliteľné)</button>' : ''}<button class="btn" type="button" data-act="ulohaZnova">Otvoriť znova</button>`}
+        ${jeRef() ? `<div class="actions two"><button class="btn" type="button" data-act="fUloha" data-id="${esc(u.id)}">Upraviť</button>${otv ? '<button class="btn danger" type="button" data-act="ulohaZrus">Zrušiť úlohu</button>' : ''}</div>` : ''}`;
+    }
+  };
+}
+function vFormUloha(id, preset){
+  const u = id ? V.ul[id] : null;
+  const st = u ? {typ:u.typ, miesto:u.miesto, pocet:u.pocet || '', popis:u.popis, termin:u.termin, pre:u.pre}
+    : Object.assign({typ:'dovoz', miesto:'', pocet:'1', popis:'', termin:denIso(Date.now() + 864e5), pre:''}, preset || {});
+  const ludia = (SRV.ludia || []).filter(l => l.rola === 'sofer' || l.rola === 'sanitar');
+  return {st,
+    hlavicka: () => ({nazov: u ? 'Upraviť úlohu' : 'Nová úloha'}),
+    telo(st){
+      const m = miesto(st.miesto);
+      return `<div class="fld"><label>Čo treba</label><div class="row">${Object.entries(TYPY_ULOH).map(([k, l]) => `<button class="chip${st.typ === k ? ' on' : ''}" type="button" data-act="uTyp" data-k="${k}">${esc(l)}</button>`).join('')}</div></div>
+        <div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(m.nazov)}</div><div class="sub">${esc([m.adresa, m.mesto].filter(Boolean).join(', '))} · teraz ${(V.poMieste[m.id] || []).length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
+          : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>
+        <div class="grid2"><div class="fld"><label>Počet kusov</label><input type="number" min="0" ${fIn('pocet', st)}></div><div class="fld"><label>Termín</label><input type="date" ${fIn('termin', st)}></div></div>
+        <div class="fld"><label>Pre koho</label>${fSel('pre', st, ludia.map(l => [l.meno, l.meno + ' (' + (ROLY[l.rola] || l.rola) + ')']), 'ktokoľvek zo šoférov')}</div>
+        <div class="fld"><label>Popis</label><textarea data-f="popis" placeholder="napr. vymeniť 2 ks, zákazník hlási tečenie, kľúče na vrátnici">${esc(st.popis)}</textarea></div>
+        <button class="btn pri" type="button" data-act="ulozUlohu" data-id="${esc(id || '')}">Uložiť</button>`;
+    }
+  };
+}
+
+/* používatelia (správca) */
+function vLudia(){
+  return {st:{zoznam:null, chyba:''},
+    hlavicka: () => ({nazov:'Používatelia a kódy', sub:'Každý má vlastný kód – pri zápisoch je vidieť, kto čo urobil.'}),
+    telo(st){
+      if (!st.zoznam) return st.chyba ? `<div class="warnbox">${esc(st.chyba)}</div>` : '<div class="empty-state">Načítavam…</div>';
+      return `<button class="btn pri" type="button" data-act="fClovek">+ Pridať človeka</button>
+        <div class="list">${st.zoznam.sort((a, b) => (a.aktivny === 'nie') - (b.aktivny === 'nie') || a.meno.localeCompare(b.meno, 'sk')).map(u => `<button class="item" type="button" data-act="fClovek" data-meno="${esc(u.meno)}">
+          <div class="main"><div class="name">${esc(u.meno)}</div><div class="sub">${esc(ROLY[u.rola] || u.rola)}${u.sklad ? ' · ' + esc(nazovMiesta(u.sklad)) : ''}${u.aktivny === 'nie' ? ' · vypnutý' : ''}</div></div>
+          <div class="qty mono">${u.aktivny === 'nie' ? '' : esc(u.pin)}</div></button>`).join('')}</div>
+        <p class="note">Kód pošlite každému osobne spolu s odkazom. Keď človek odíde, vypnite ho – jeho kód okamžite prestane platiť.</p>`;
+    },
+    po(st){ if (st.zoznam || st.nacitava) return; st.nacitava = true;
+      api('pouzivatelia', C.pin).then(z => { st.zoznam = z; renderModal(); }).catch(e => { st.chyba = e.message; renderModal(); }); }
+  };
+}
+function vClovek(u, ludiaView){
+  const st = u ? Object.assign({}, u) : {meno:'', rola:'sofer', pin:String(Math.floor(1000 + Math.random() * 9000)), sklad:'', aktivny:'áno', pozn:''};
+  return {st,
+    hlavicka: () => ({nazov: u ? esc(u.meno) : 'Nový človek'}),
+    telo: st => `<div class="fld"><label>Meno a priezvisko</label><input type="text" ${fIn('meno', st)}></div>
+      <div class="grid2"><div class="fld"><label>Rola</label>${fSel('rola', st, Object.entries(ROLY))}</div><div class="fld"><label>Kód (4–8 číslic)</label><input type="text" inputmode="numeric" class="mono" ${fIn('pin', st)}></div></div>
+      <div class="fld"><label>Domovský sklad</label>${fSel('sklad', st, skladyOpts(true), '—')}</div>
+      <div class="fld"><label>Poznámka</label><input type="text" ${fIn('pozn', st)}></div>
+      ${u ? `<label class="checkrow"><input type="checkbox" data-f="vyp" ${st.aktivny === 'nie' ? 'checked' : ''}><span>Vypnutý (kód neplatí)</span></label>` : ''}
+      <p class="note" style="margin:0">${esc({sofer:'Šofér: úlohy, výdaj a zvoz výdajníkov, hlásenie porúch.', sanitar:'Sanitácia: sanitácie, opravy, návrhy na vyradenie, príjem a presuny.', referentka:'Referentka: prehľad, úlohy pre šoférov, zákazníci, výkazy, vyraďovanie.', admin:'Správca: všetko + používatelia, import zo SPIN, nastavenia.'}[st.rola] || '')}</p>
+      <button class="btn pri" type="button" data-act="ulozCloveka" data-stare="${esc(u ? u.meno : '')}">Uložiť</button>`,
+    zmena(f){ if (f === 'rola') renderModal(); },
+    ludiaView};
+}
+
+/* nastavenia (správca) */
+function vNastavenia(){
+  return {st:{sanitMesiacov:SRV.meta.sanitMesiacov},
+    hlavicka: () => ({nazov:'Nastavenia'}),
+    telo: st => `<div class="fld"><label>Po koľkých mesiacoch u zákazníka treba výdajník vymeniť / sanitovať</label><input type="number" min="1" max="60" ${fIn('sanitMesiacov', st)}></div>
+      <p class="note" style="margin:0">Referentky odporúčajú 4–6 mesiacov. Podľa toho sa plní zoznam „Dlho u zákazníka – na výmenu“.</p>
+      <button class="btn pri" type="button" data-act="ulozNastavenia">Uložiť</button>`
+  };
+}
+
+/* import zo SPIN (správca) */
+function vImport(){
+  return {st:{faza:'vyber'},
+    hlavicka: () => ({nazov:'Import zo SPIN', sub:'zostava „Evidencia výdajníkov“ od Grafobalu / Asseca'}),
+    telo(st){
+      if (st.faza === 'vyber') return `<p class="small" style="margin:0">Vyberte Excel so zostavou (hárok <b>Výdajníky (dump)</b>). Súbor sa spracuje v tomto zariadení a do databázy sa pošlú výdajníky a miesta.</p>
+        <ul class="small" style="margin:0;padding-left:18px"><li>Nové výdajníky a zákazníci sa doplnia.</li><li>Pri existujúcich sa obnovia údaje zo SPIN (model, cena, dátumy).</li><li>Stav a miesto sa prepíšu len tam, kde ich v aplikácii ešte nikto nezmenil.</li></ul>
+        <button class="btn pri" type="button" data-act="importVyber">Vybrať Excel</button>${st.chyba ? `<div class="warnbox">${esc(st.chyba)}</div>` : ''}`;
+      if (st.faza === 'nahlad') { const s = st.suhrn;
+        return `<div class="okbox">Súbor <b>${esc(st.subor)}</b> – ${s.riadkov} riadkov.</div>
+          <table><tr><th>Výdajníkov</th><td class="r">${s.vyd}</td></tr><tr><th>z toho vyradených</th><td class="r">${s.st.vyradeny || 0}</td></tr>
+          ${Object.keys(STAVY).filter(k => k !== 'vyradeny').map(k => `<tr><td>${esc(STAVY[k])}</td><td class="r">${s.st[k] || 0}</td></tr>`).join('')}
+          <tr><th>Zákazníkov / odberných miest</th><td class="r">${s.zak}</td></tr><tr><th>Skladov</th><td class="r">${s.skl}</td></tr>
+          <tr><td>zákaznícke (vlastné) výdajníky</td><td class="r">${s.vlastne}</td></tr>${s.dup ? `<tr><td>duplicitné výrobné čísla (zlúčené)</td><td class="r">${s.dup}</td></tr>` : ''}</table>
+          <div class="fld"><label>Popis importu (napr. „stav k 13. 10. 2026“)</label><input type="text" ${fIn('popis', st)}></div>
+          <button class="btn pri" type="button" data-act="importPotvrd">Nahrať do databázy</button><button class="btn" type="button" data-act="importVyber">Vybrať iný súbor</button>`; }
+      if (st.faza === 'nahrava') return `<div class="empty-state">Nahrávam… ${esc(st.krok)} / ${esc(st.krokov)}<br>Nezatvárajte okno.</div>`;
+      return `<div class="okbox">Hotovo: ${esc(st.vysl)}</div><button class="btn pri" type="button" data-act="zavri">Zavrieť</button>`;
+    }
+  };
+}
+/** Riadky zostavy SPIN → výdajníky a miesta pre aplikáciu. */
+function spinNaZaznamy(riadky){
+  const ix = {}; (riadky[0] || []).forEach((h, i) => { ix[String(h).trim()] = i; });
+  if (ix.VYROBNE_CISLO == null || ix.OM_FIRMA_INT_KOD == null) throw new Error('V súbore chýbajú stĺpce VYROBNE_CISLO / OM_FIRMA_INT_KOD – je to zostava „Výdajníky (dump)“?');
+  const g = (r, k) => { const v = r[ix[k]]; return v == null ? '' : v; };
+  const s = (r, k) => String(g(r, k)).replace(/\s+$/, '').trim();
+  const d = (r, k) => { const v = g(r, k); if (!v) return ''; const x = v instanceof Date ? v : new Date(v); if (isNaN(x)) return ''; if (x.getFullYear() > new Date().getFullYear() + 1) return ''; return x.toISOString(); };
+  const den = (r, k) => { const v = d(r, k); return v ? denIso(v) : ''; };
+  const miesta = {}, vyd = {}, suhrn = {riadkov:riadky.length - 1, st:{}, vlastne:0, dup:0};
+  miesta[NEZ] = {id:NEZ, typ:'sklad', nazov:'Vrátené – sklad nezistený', pozn:'Vo SPIN je posledný pohyb vrátenie od zákazníka, sklad sa nedá určiť. Pri inventúre zapísať skutočný sklad.'};
+  const jeSkladOM = n => /vodax/i.test(n);
+  for (const r of riadky.slice(1)) {
+    const vc = s(r, 'VYROBNE_CISLO'); if (!vc) continue;
+    const om = s(r, 'OM_FIRMA_INT_KOD'), omN = s(r, 'OM_FIRMA_NAZOV');
+    if (om && !miesta[om]) miesta[om] = {id:om, typ:jeSkladOM(omN) ? 'sklad' : 'zakaznik', nazov:omN || om, ico:s(r, 'OM_FIRMA_ICO'), adresa:s(r, 'OM_FIRMA_ADRESA'),
+      psc:s(r, 'OM_FIRMA_PSC'), mesto:s(r, 'OM_FIRMA_MESTO'), fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO'),
+      faktAdresa:[s(r, 'FM_FIRMA_ADRESA'), [s(r, 'FM_FIRMA_PSC'), s(r, 'FM_FIRMA_MESTO')].filter(Boolean).join(' ')].filter(Boolean).join(', ')};
+    else if (om && !miesta[om].fakt && s(r, 'FM_FIRMA_NAZOV')) Object.assign(miesta[om], {fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO')});
+    const nazov = s(r, 'NAZOV_VYDAJNIKA'), mn = num(g(r, 'DOKLAD_MNOZSTVO')), dokl = d(r, 'DOKLAD_DATUM'), san = d(r, 'POSLEDNA_SANITACIA');
+    const vlastnikTxt = s(r, 'VLASTNIK_NAZOV_FIRMY').replace(/^Firma\s*:\s*/i, '').replace(/,?\s*IČO:.*$/i, '').trim();
+    const vlastnik = vlastnikTxt || (/vlastn/i.test(s(r, 'NAZOV_PRODUKTU') + ' ' + nazov) ? 'zákazník' : '');
+    let stav, miestoId = '';
+    if (g(r, 'DATUM_VYRADENIA')) { stav = 'vyradeny'; miestoId = om; }
+    else if (mn === 1) { miestoId = om; stav = miesta[om] && miesta[om].typ === 'sklad' ? 'pripraveny' : 'zakaznik'; }
+    else if (mn === -1) { miestoId = NEZ; stav = san && san > dokl ? 'pripraveny' : 'spinavy'; }
+    else stav = 'nezname';
+    const navrh = s(r, 'NAVRH_NA_VYRADENIE');
+    if (navrh && stav !== 'zakaznik' && stav !== 'vyradeny') stav = 'vyradenie';
+    const rokM = nazov.match(/\b(20\d{2}|19\d{2})\b/), zar = den(r, 'DATUM_ZARADENIA');
+    const spin = {};
+    const pridaj = (l, x) => { if (x !== '' && x != null) spin[l] = x; };
+    if (om) pridaj('Posledný doklad', `${s(r, 'DOKLAD_CISLO')} z ${fmtD(den(r, 'DOKLAD_DATUM'))}, ${mn > 0 ? 'výdaj' : 'vrátenie'} ${mn > 0 ? 'do' : 'z'} ${omN}`);
+    pridaj('Obalové saldo', s(r, 'OBALOVE_SALDO'));
+    pridaj('Cena na doklade', s(r, 'DOKLAD_CENA') && s(r, 'DOKLAD_CENA') !== '0' ? s(r, 'DOKLAD_CENA') : '');
+    pridaj('Cenník 40', s(r, 'CENNIK_40_CENA'));
+    pridaj('Typ', s(r, 'NAZOV_TYPU'));
+    pridaj('Popis', s(r, 'POPIS').replace(/_x000D_/g, '').replace(/\r+\n?/g, '\n').trim());
+    pridaj('Poznámka', s(r, 'POZNAMKA').replace(/^[Š♦\s]+/, '').replace(/\r+\n?/g, '\n').trim());
+    pridaj('Kód produktu', s(r, 'KOD_PRODUKTU'));
+    pridaj('Vlastník vo SPIN', s(r, 'VLASTNIK_NAZOV_FIRMY'));
+    const id = normVc(vc);
+    if (vyd[id]) suhrn.dup++;
+    vyd[id] = {vc:id, ev:(vc.match(/(\d{1,5}\/\d{2,4})\s*$/) || [])[1] || '', nazov, model:nazov.replace(/^V[ýy]dajn[íi]k\s*/i, ''), rok:rokM ? rokM[1] : zar.slice(0, 4),
+      vlastnik, obstCena:s(r, 'OBSTARAVACIA_CENA'), zaradenie:zar, vyradenie:den(r, 'DATUM_VYRADENIA'), stav, miesto:miestoId, odKedy:dokl,
+      sanitacia:san, oprava:d(r, 'POSEDNA_OPRAVA') || d(r, 'POSLEDNA_OPRAVA'), revizia:d(r, 'POSLEDNA_REVIZIA'), navrh, pozn:'', spin:JSON.stringify(spin)};
+  }
+  const v = Object.values(vyd), m = Object.values(miesta);
+  for (const x of v) { suhrn.st[x.stav] = (suhrn.st[x.stav] || 0) + 1; if (x.vlastnik) suhrn.vlastne++; }
+  Object.assign(suhrn, {vyd:v.length, zak:m.filter(x => x.typ === 'zakaznik').length, skl:m.filter(x => x.typ === 'sklad').length});
+  return {vydajniky:v, miesta:m, suhrn};
+}
+
+/* ---------- akcie (klik na data-act) ---------- */
+const vrch = () => STACK[STACK.length - 1];
+const ACT = {
+  tab(d){ zavriModal(); C.tab = d.tab; ulozConf(); vykresli(); window.scrollTo(0, 0); },
+  zavri(){ SKEN.rezim = ''; zavriModal(); }, spat,
+  vyd(d){ otvor(vKartaVyd(d.id)); },
+  rychly(d){ otvor(vRychly(d.typ)); },
+  stitky(d){ otvor(vStitky([d.id])); },
+  stitkyFilter(){ const r = TABS.vydajniky.filtrovane(); if (r.length > 60 && !confirm(`Vo filtri je ${r.length} výdajníkov. Pripraviť štítky pre prvých 60?`)) return; otvor(vStitky(r.slice(0, 60).map(v => v.id))); },
+  stitkyTlac(){ const st = vrch().st; $('#tlac').innerHTML = st.obr.map(o => `<img src="${o.png}" alt="">`).join(''); setTimeout(() => window.print(), 150); },
+  stitkyPng(){ const st = vrch().st; st.obr.forEach((o, i) => setTimeout(() => { const a = document.createElement('a'); a.href = o.png; a.download = 'stitok_' + o.id.replace(/[^\w.-]+/g, '_') + '.png'; document.body.appendChild(a); a.click(); a.remove(); }, i * 400)); },
+  podpisUloha(){ const u = V.ul[vrch().st.id]; otvor(vPodpis({miesto:u.miesto, uloha:u.id, pohyby:Object.values(V.poh).filter(p => p.uloha === u.id).map(p => p.id)})); },
+  podpisRychly(){ const st = vrch().st; otvor(vPodpis({miesto:st.miesto || (V.poh[st.ids[0]] || {}).z || '', uloha:'', pohyby:st.ids.slice()})); },
+  podpisVymaz(){ const c = $('#podpisPlocha'); c.getContext('2d').clearRect(0, 0, c.width, c.height); vrch().st.ciary = 0; },
+  podpisUloz(){
+    const v = vrch(), st = v.st;
+    if (!st.ciary) return toast('Najprv sa podpíšte do bieleho poľa.');
+    const c = $('#podpisPlocha'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+    const x = o.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, o.width, o.height); x.drawImage(c, 0, 0);
+    zmen({t:'podpis', miesto:v.o.miesto, uloha:v.o.uloha, pohyby:v.o.pohyby, meno:String(st.meno || '').trim(), png:o.toDataURL('image/png').split(',')[1]});
+    vibr(); toast('Podpis uložený'); spat();
+  },
+  podpisUkaz(d){ api('podpisData', C.pin, d.pf).then(src => { $('#fotoImg').src = src; $('#foto').classList.add('on'); }).catch(e => toast(jeSiet(e) ? 'Podpis sa dá pozrieť len so signálom.' : e.message, 3500)); },
+  hromadnyPresun(d){ otvor(vHromadnyPresun(d.id)); },
+  hromadnyOk(){
+    const st = vrch().st;
+    const a = (V.poMieste[st.z] || []).filter(v => v.stav !== 'zakaznik' && st.stavy[v.stav]);
+    if (!st.kam || !a.length) return;
+    if (!confirm(`Presunúť ${a.length} výdajníkov z „${nazovMiesta(st.z)}“ na „${nazovMiesta(st.kam)}“?`)) return;
+    zmenViac(a.map(v => ({t:'pohyb', vyd:v.id, typ:'presun', kam:st.kam, pozn:'hromadný presun'})));
+    toast(a.length + ' výdajníkov presunutých'); spat();
+  },
+  rychlySken(){ const v = vrch(), st = v.st; spustiSken({rezim:'rychly', text: st.typ === 'vydaj' ? 'Skenujte výdajníky pre ' + nazovMiesta(st.miesto) : 'Skenujte prevzaté výdajníky',
+    kod: t => { const r = pohybRychly(st, t); if (r.ok) renderModal(); return r; }}); },
+  rychlyRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = pohybRychly(st, st.vc); toast(r.msg, 3000); if (r.ok) st.vc = ''; renderModal(); },
+  servisHladaj(){ const i = $('#srvVyd'); if (i && i.value.trim()) servisNajdi(i.value); },
+  skenServis(){ spustiSken({rezim:'servis', text:'Naskenujte QR kód výdajníka', kod: t => { const r = najdiVyd(t); if (r.length === 1) { zastavSken(); otvorServis(r[0].id); return {ok:true}; } return {msg: r.length ? 'Viac zhôd' : 'Nenašiel som: ' + t}; }}); },
+  srvZaznam(){ SERVIS.zaznam = true; SERVIS.kod = rola() === 'sofer' ? 'P' : ''; TABS.servis.obnov(); },
+  srvKod(d){ SERVIS.kod = d.k; TABS.servis.obnov(); },
+  srvVar(d){ SERVIS.variant = d.k; TABS.servis.obnov(); },
+  srvVys(d){ SERVIS.vysledok = d.k; TABS.servis.obnov(); },
+  srvDovod(d){ SERVIS.dovod = d.k; TABS.servis.obnov(); },
+  srvVsetko(){ const n = (SERVIS.variant === 'novy' ? KROKY_NOVY : KROKY_SANIT).length; for (let i = 0; i < n; i++) SERVIS.kroky[SERVIS.variant + i] = true; TABS.servis.obnov(); },
+  srvUloz(){ servisUloz(); },
+  srvNovy(){ SERVIS.id = ''; vykresli(); setTimeout(() => { const i = $('#srvVyd'); if (i) i.focus(); }, 50); },
+  servisZKarty(d){ otvorServis(d.id); },
+  miesto(d){ otvor(vKartaMiesta(d.id)); },
+  uloha(d){ otvor(vKartaUlohy(d.id)); },
+  viac(d){ TABS[d.tab].limit += 200; TABS[d.tab].obnov(); },
+  vChip(d){ C.f.vstav = d.k; ulozConf(); TABS.vydajniky.limit = 80; TABS.vydajniky.obnov(); },
+  filtrStav(d){ C.f.vstav = d.stav; C.f.vmiesto = ''; C.f.vq = ''; C.tab = 'vydajniky'; ulozConf(); vykresli(); },
+  filtrNavrh(){ C.f.vstav = 'navrh'; C.f.vmiesto = '__zak'; C.f.vq = ''; C.tab = 'vydajniky'; ulozConf(); vykresli(); },
+  mTyp(d){ C.f.mtyp = d.k; ulozConf(); vykresli(); },
+  uFil(d){ C.f.ufil = d.k; ulozConf(); vykresli(); },
+  mVsetky(){ vrch().st.vsetky = true; renderModal(); },
+  fPohyb(d){ otvor(vFormPohyb(d.id, d.typ)); },
+  fServis(d){ otvor(vFormServis(d.id, d.typ)); },
+  fInventura(d){ otvor(vFormInventura(d.id)); },
+  fVyd(d){ otvor(vFormVyd(d.id)); },
+  novyVyd(d){ otvor(vFormVyd(null, d.vc)); },
+  fMiesto(d){ otvor(vFormMiesto(d.id)); },
+  noveMiesto(d){ otvor(vFormMiesto(null, d.typ || (C.f.mtyp === 'sklad' ? 'sklad' : 'zakaznik'))); },
+  vyberMiesto(d){
+    const f = vrch(), pole = d.pole || 'kam';
+    otvor(Object.assign(vVyberMiesta(d.typ, id => { f.st[pole] = id; }), {}));
+  },
+  vyberMiestoOk(d){ const v = vrch(); STACK.pop(); v.cb(d.id); renderModal(); },
+  ulozPohyb(){ ulozPohyb(vrch().st); },
+  sVar(d){ vrch().st.variant = d.k; renderModal(); },
+  sVys(d){ vrch().st.vysledok = d.k; renderModal(); },
+  sDovod(d){ vrch().st.dovod = d.k; renderModal(); },
+  sVsetko(){ const st = vrch().st, n = (st.variant === 'novy' ? KROKY_NOVY : KROKY_SANIT).length; for (let i = 0; i < n; i++) st.kroky[st.variant + i] = true; renderModal(); },
+  ulozServis(){ ulozServis(vrch().st); },
+  ulozInventura(){ const st = vrch().st; if (!st.kam) return toast('Vyberte miesto.');
+    if (st.stav === 'zakaznik' ? jeSklad(st.kam) : !jeSklad(st.kam) && st.stav !== 'nezname') return toast(st.stav === 'zakaznik' ? 'Stav „U zákazníka“ potrebuje zákazníka, nie sklad.' : 'Tento stav potrebuje sklad, nie zákazníka.');
+    zmen({t:'pohyb', vyd:st.id, typ:'inventura', stav:st.stav, kam:st.kam, pozn:st.pozn.trim()}); toast('Stav opravený'); spat(); },
+  ulozVyd(d){
+    const st = vrch().st;
+    const patch = {ev:normVc(st.ev), model:st.model.trim(), rok:String(st.rok || '').trim(), vlastnik:st.vlastnik.trim(), pozn:st.pozn};
+    if (jeRef()) patch.obstCena = String(st.obstCena || '').trim();
+    if (d.id) { zmen({t:'vydajnik', vyd:d.id, patch}); toast('Uložené'); return spat(); }
+    const id = normVc(st.vc);
+    if (!id) return toast('Napíšte výrobné číslo.');
+    if (V.vyd[id]) return toast('Tento výdajník už v evidencii je.');
+    if (!st.kam) return toast('Vyberte sklad.');
+    if (!patch.model) return toast('Napíšte model.');
+    patch.vc = id; patch.nazov = 'Výdajník ' + patch.model;
+    zmen({t:'vydajnik', vyd:id, novy:true, stav:st.stav, kam:st.kam, patch});
+    toast('Výdajník založený – vytlačte mu QR štítok', 3500); nahrad(vKartaVyd(id));
+  },
+  ulozMiesto(d){
+    const st = vrch().st;
+    const polia = jeRef() ? ['typ','nazov','ico','adresa','psc','mesto','fakt','faktIco','faktAdresa','kontakt','telefon','email','pozn'] : ['kontakt','telefon','email','pozn'];
+    const patch = {}; polia.forEach(k => { patch[k] = String(st[k] ?? '').trim(); });
+    let id = d.id;
+    if (!id) { id = String(st.id || '').trim(); if (!id) return toast('Napíšte kód.'); if (V.mie[id]) return toast('Tento kód už existuje.'); if (!patch.nazov) return toast('Napíšte názov.'); }
+    zmen({t:'miesto', id, patch}); toast('Uložené');
+    if (!d.id) nahrad(vKartaMiesta(id)); else spat();
+  },
+  novaUloha(d){ otvor(vFormUloha(null, d.miesto ? {miesto:d.miesto, typ:d.typ || 'dovoz', pocet:d.pocet || '1'} : null)); },
+  fUloha(d){ otvor(vFormUloha(d.id)); },
+  uTyp(d){ vrch().st.typ = d.k; renderModal(); },
+  ulozUlohu(d){
+    const st = vrch().st;
+    if (!st.miesto) return toast('Vyberte zákazníka.');
+    const patch = {typ:st.typ, miesto:st.miesto, pocet:String(st.pocet || ''), popis:st.popis.trim(), termin:st.termin || '', pre:st.pre || ''};
+    const id = d.id || noveId('U');
+    zmen({t:'uloha', id, patch}); toast(d.id ? 'Úloha upravená' : 'Úloha zadaná');
+    if (d.id) spat(); else nahrad(vKartaUlohy(id));
+  },
+  ulohaHotovo(){ const st = vrch().st; zmen({t:'uloha', id:st.id, patch:{hotovo:true, hotovoPozn:(st.pozn || '').trim()}}); vibr(); toast('Úloha hotová'); zavriModal(); },
+  ulohaZnova(){ zmen({t:'uloha', id:vrch().st.id, patch:{hotovo:false}}); },
+  ulohaZrus(){ if (!confirm('Zrušiť úlohu?')) return; zmen({t:'uloha', id:vrch().st.id, patch:{stav:'zrusena'}}); toast('Úloha zrušená'); zavriModal(); },
+  ulohaRucne(d){ const st = vrch().st, r = pohybKUlohe(st, d.typ, st.vc); toast(r.msg, 3000); if (r.ok) { st.vc = ''; renderModal(); } },
+  skenUloha(d){
+    const v = vrch(), st = v.st;
+    if (d.typ === 'prijem' && !st.kam) return toast('Najprv vyberte sklad, kam idú prevzaté výdajníky.');
+    spustiSken({rezim:'uloha', text: d.typ === 'vydaj' ? 'Skenujte výdajníky, ktoré nechávate u zákazníka' : 'Skenujte výdajníky, ktoré beriete od zákazníka',
+      kod: t => { const r = pohybKUlohe(st, d.typ, t); return {msg:r.msg, ok:r.ok}; }});
+  },
+  skenNajdi(){ spustiSken({rezim:'najdi', text:'Namierte na QR kód na výdajníku', kod: t => {
+    const r = najdiVyd(t);
+    if (r.length === 1) { zastavSken(); zavriModal(); otvor(vKartaVyd(r[0].id)); return {ok:true}; }
+    if (r.length > 1) { zastavSken(); zavriModal(); if ((ROLE_TABS[rola()] || []).includes('hladaj')) { C.f.hq = t; C.tab = 'hladaj'; } else { C.f.vq = t; C.f.vstav = 'akt'; C.tab = 'vydajniky'; } ulozConf(); vykresli(); return {ok:true}; }
+    return {msg:'Nenašiel som: ' + t + (jeSanit() ? ' – môžete ho založiť ako nový (Hľadať).' : ''), nenajdene:t};
+  }}); },
+  skenSanit(){ spustiSken({rezim:'sanit', text:'Skenujte výdajník na sanitáciu', kod: t => {
+    const r = najdiVyd(t);
+    if (r.length !== 1) return {msg: r.length ? 'Viac zhôd – napíšte celé číslo' : 'Nenašiel som: ' + t};
+    zastavSken(); otvorServis(r[0].id); Object.assign(SERVIS, {zaznam:true, kod:'S', zoSanit:true}); TABS.servis.obnov(); return {ok:true};
+  }}); },
+  historia(d){ const v = vrch(); api('historia', C.pin, d.id).then(h => { v.st.historia = h; renderModal(); }).catch(e => toast(jeSiet(e) ? 'História sa dá načítať len so signálom.' : e.message, 3500)); toast('Načítavam…', 1200); },
+  fotkaPridaj(d){ fotkaPre = d.id; $('#fotoVstup').value = ''; $('#fotoVstup').click(); },
+  fotkaUkaz(d){ api('fotoData', C.pin, d.f).then(src => { $('#fotoImg').src = src; $('#foto').classList.add('on'); }).catch(e => toast(jeSiet(e) ? 'Fotka sa dá pozrieť len so signálom.' : e.message, 3500)); toast('Načítavam fotku…', 1500); },
+  odhlas(){ odhlas(false); },
+  syncTeraz(){ sync(); },
+  async nacitajZnova(){ if (OUT.length) { toast('Najprv musia odísť čakajúce zmeny.'); sync(); return; } try { await nacitajVsetko(); toast('Načítané'); } catch(e) { toast(e.message, 3500); } },
+  ludia(){ otvor(vLudia()); },
+  fClovek(d){ const lv = vrch(); const u = d.meno ? lv.st.zoznam.find(x => x.meno === d.meno) : null; otvor(vClovek(u, lv)); },
+  async ulozCloveka(d){
+    const v = vrch(), st = v.st;
+    const u = {meno:st.meno.trim(), rola:st.rola, pin:String(st.pin).trim(), sklad:st.sklad, pozn:st.pozn, aktivny:st.vyp ? 'nie' : 'áno'};
+    try { const z = await api('ulozPouzivatela', C.pin, u, d.stare || ''); v.ludiaView.st.zoznam = z; toast('Uložené'); spat(); sync(); }
+    catch(e) { toast(jeSiet(e) ? 'Používateľov sa dá meniť len so signálom.' : e.message, 4000); }
+  },
+  nastavenia(){ otvor(vNastavenia()); },
+  async ulozNastavenia(){ try { SRV.meta = Object.assign(SRV.meta, await api('nastavAdmin', C.pin, {sanitMesiacov:vrch().st.sanitMesiacov})); ulozCache(); toast('Uložené'); spat(); obnovVsetko(); } catch(e) { toast(e.message, 3500); } },
+  importOtvor(){ otvor(vImport()); },
+  importVyber(){ $('#importVstup').value = ''; $('#importVstup').click(); },
+  async importPotvrd(){
+    const v = vrch(), st = v.st, dat = st.data;
+    st.faza = 'nahrava'; const D = 700; st.krokov = Math.ceil(dat.vydajniky.length / D); st.krok = 0; renderModal();
+    let s = {noveV:0, upraveneV:0, noveM:0};
+    try {
+      for (let i = 0; i < st.krokov; i++) {
+        st.krok = i + 1; renderModal();
+        const r = await api('importuj', C.pin, {vydajniky:dat.vydajniky.slice(i * D, (i + 1) * D), miesta:i === 0 ? dat.miesta : []}, i === st.krokov - 1, {subor:st.subor, popis:st.popis || ''});
+        s.noveV += r.noveV; s.upraveneV += r.upraveneV; s.noveM += r.noveM;
+      }
+      st.faza = 'hotovo'; st.vysl = `${s.noveV} nových a ${s.upraveneV} obnovených výdajníkov, ${s.noveM} nových miest.`;
+      renderModal(); await nacitajVsetko();
+    } catch(e) { st.faza = 'vyber'; st.chyba = 'Import sa nedokončil: ' + e.message + ' – dá sa spustiť znova, nič sa nezdvojí.'; renderModal(); }
+  },
+  async vykaz(){
+    const od = $('#vOd').value, po = $('#vDo').value;
+    if (!od || !po) return toast('Vyberte obdobie.');
+    if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.');
+    toast('Pripravujem výkaz…', 2000);
+    try { const r = await api('vykaz', C.pin, od, po); stiahniVykaz(r, od, po); } catch(e) { toast(jeSiet(e) ? 'Výkaz sa dá stiahnuť len so signálom.' : e.message, 3500); }
+  },
+  exportStav(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniStav(); },
+  exportVyd(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniVydajniky(TABS.vydajniky.filtrovane()); }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const f = ACT[el.dataset.act]; if (!f) return;
+  e.preventDefault(); f(el.dataset, el, e);
+});
+// filtre v záložkách
+document.addEventListener('input', e => {
+  const id = e.target.id;
+  const map = {vQ:['vq','vydajniky'], mQ:['mq','miesta'], hQ:['hq','hladaj']};
+  if (map[id]) { const tb = TABS[map[id][1]]; C.f[map[id][0]] = e.target.value; ulozConf(); clearTimeout(ACT.t); ACT.t = setTimeout(() => { if ('limit' in tb) tb.limit = 80; tb.obnov(); }, 180); }
+});
+document.addEventListener('change', e => {
+  const id = e.target.id;
+  if (id === 'vMiesto') { C.f.vmiesto = e.target.value; ulozConf(); TABS.vydajniky.obnov(); }
+  if (id === 'vVlast') { C.f.vvlast = e.target.value; ulozConf(); TABS.vydajniky.obnov(); }
+  if (id === 'uPre') { C.f.upre = e.target.value; ulozConf(); TABS.ulohy.obnov(); }
+  if (id === 'sSklad') { C.f.sSklad = e.target.value; ulozConf(); TABS.sanitacia.obnov(); }
+  if (id === 'xSklad') { C.sklad = e.target.value; ulozConf(); toast('Sklad uložený'); }
+});
+
+/** Výdaj / prevzatie v rámci úlohy (sken alebo ručne). */
+function pohybKUlohe(st, typ, text){
+  const u = V.ul[st.id]; if (!u) return {msg:'Úloha neexistuje.'};
+  const r = najdiVyd(text);
+  if (!r.length) return {msg:'Nenašiel som: ' + text};
+  if (r.length > 1) return {msg:'Viac zhôd pre ' + text + ' – napíšte celé číslo.'};
+  const v = r[0];
+  // vyradený kus sa nesmie vrátiť do obehu; v oprave / na vyradenie nevydávať
+  if (v.stav === 'vyradeny') return {msg:v.vc + ' je VYRADENÝ – nevydávať ani neprijímať, odložte ho bokom a dajte vedieť referentke.'};
+  if ((typ === 'vydaj') && (v.stav === 'oprava' || v.stav === 'vyradenie')) return {msg:v.vc + ' je ' + STAVY[v.stav].toLowerCase() + ' – nevydávajte ho, vezmite iný kus.'};
+  if (typ === 'vydaj') {
+    if (v.stav === 'zakaznik' && v.miesto === u.miesto) return {msg:v.vc + ' už je u tohto zákazníka.'};
+    zmen({t:'pohyb', vyd:v.id, typ:'vydaj', kam:u.miesto, uloha:u.id});
+    vibr(); return {ok:true, msg:'Vydané: ' + v.vc + (v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '')};
+  }
+  if (!st.kam) return {msg:'Vyberte sklad pre prevzaté výdajníky.'};
+  const inde = v.stav === 'zakaznik' && v.miesto !== u.miesto;
+  zmen({t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam, uloha:u.id});
+  if (!C.sklad) { C.sklad = st.kam; ulozConf(); }
+  vibr(); return {ok:true, msg:'Prevzaté: ' + v.vc + (inde ? ' (v evidencii bol u ' + nazovMiesta(v.miesto) + ')' : '')};
+}
+
+/* ---------- skenovanie ---------- */
+/** Fotka zo súboru ako obrázok na kreslenie – createImageBitmap nie je na iOS starších ako 15. */
+function obrazok(subor){
+  if (window.createImageBitmap) return createImageBitmap(subor);
+  return new Promise((ok, ko) => { const i = new Image(), u = URL.createObjectURL(subor); i.onload = () => { URL.revokeObjectURL(u); ok(i); }; i.onerror = () => ko(new Error('Fotka sa nedá otvoriť.')); i.src = u; });
+}
+const SKEN = {stream:null, bezi:false, rezim:'', kod:null};
+/** Živá kamera ide len mimo rámčeka Google (lokálny test) alebo tam, kde ju rámček výslovne povolí. Inak sa skenuje fotkou. */
+const ZIVA_KAMERA = (() => {
+  try { if (window.top === window.self) return true; } catch(e) {}
+  try { return !!(document.featurePolicy && document.featurePolicy.allowsFeature('camera')); } catch(e) { return false; }
+})();
+async function detektor(max){
+  if ('BarcodeDetector' in window) {
+    try { const f = await BarcodeDetector.getSupportedFormats(); if (f && f.length) { const d = new BarcodeDetector({formats:f}); return src => d.detect(src); } } catch(e) {}
+  }
+  if (window.jsQR) return async src => {
+    const c = detektor.c || (detektor.c = document.createElement('canvas'));
+    const w = src.videoWidth || src.width, h = src.videoHeight || src.height; if (!w) return [];
+    const k = Math.min(1, (max || 1000) / Math.max(w, h)); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(src, 0, 0, c.width, c.height);
+    const r = jsQR(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+    return r ? [{rawValue:r.data, format:'qr_code'}] : [];
+  };
+  return null;
+}
+function spracujKod(t, format){
+  if (kodVyrobku(format)) { $('#scanMsg').textContent = 'EAN výrobku preskočený – namierte na QR kód'; return; }
+  const r = SKEN.kod(t) || {};
+  if (r.msg) $('#scanMsg').textContent = r.msg;
+}
+async function spustiSken(o){
+  SKEN.rezim = o.rezim; SKEN.kod = o.kod;
+  $('#scanMsg').textContent = o.text || 'Namierte na QR kód';
+  $('#scanRucne').value = '';
+  $('#scan').classList.toggle('foto-rezim', !ZIVA_KAMERA);
+  $('#scanFoto').textContent = 'Odfotiť kód';
+  $('#scan').classList.add('on'); SKEN.bezi = true;
+  if (!ZIVA_KAMERA) { $('#skenVstup').value = ''; $('#skenVstup').click(); return; }   // fotoaparát sa musí otvoriť hneď v rámci ťuknutia
+  const det = await detektor();
+  try {
+    if (!det) throw new Error('bez detektora');
+    SKEN.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment', width:{ideal:1280}}});
+    const v = $('#scanVideo'); v.srcObject = SKEN.stream; await v.play();
+    let posledne = '', kedy = 0;
+    const krok = async () => {
+      if (!SKEN.bezi) return;
+      try {
+        for (const k of await det(v)) {
+          const t = String(k.rawValue || '').trim();
+          if (t && (t !== posledne || Date.now() - kedy > 3000)) { posledne = t; kedy = Date.now(); spracujKod(t, k.format); if (!SKEN.bezi) return; }
+        }
+      } catch(e) {}
+      setTimeout(krok, 220);
+    };
+    krok();
+  } catch(e) {
+    $('#scanMsg').textContent = 'Kamera sa nespustila – použite „Odfotiť kód“ alebo napíšte číslo.';
+  }
+}
+function zastavSken(nechajRezim){
+  SKEN.bezi = false;
+  if (SKEN.stream) SKEN.stream.getTracks().forEach(t => t.stop());
+  SKEN.stream = null; $('#scan').classList.remove('on');
+  if (!nechajRezim) SKEN.rezim = '';
+}
+$('#scanStop').addEventListener('click', () => zastavSken());
+$('#scanOk').addEventListener('click', () => { const t = $('#scanRucne').value.trim(); if (t) { spracujKod(t, ''); $('#scanRucne').value = ''; } });
+$('#scanRucne').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#scanOk').click(); } });
+$('#scanFoto').addEventListener('click', () => { $('#skenVstup').value = ''; $('#skenVstup').click(); });
+$('#skenVstup').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('#scanMsg').textContent = 'Čítam kód z fotky…';
+  try {
+    const det = await detektor(1600); if (!det) throw new Error('Tento prehliadač nevie čítať kódy – napíšte číslo.');
+    const kody = (await det(await obrazok(f))).filter(k => !kodVyrobku(k.format));
+    if (!kody.length) { $('#scanMsg').textContent = 'Na fotke som nenašiel QR kód – odfoťte ho bližšie a ostrejšie, alebo napíšte číslo.'; return; }
+    kody.sort((a, b) => (b.format === 'qr_code') - (a.format === 'qr_code'));
+    spracujKod(String(kody[0].rawValue).trim(), kody[0].format);
+    if (SKEN.bezi) $('#scanFoto').textContent = 'Odfotiť ďalší kód';
+  } catch(err) { $('#scanMsg').textContent = err.message; }
+});
+
+/* ---------- fotky ---------- */
+let fotkaPre = '';
+async function zmensi(subor, max){
+  const img = await obrazok(subor);
+  const k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.75).split(',')[1];
+}
+$('#fotoVstup').addEventListener('change', async e => {
+  const f = e.target.files[0], id = fotkaPre; if (!f || !id) return;
+  toast('Nahrávam fotku…', 4000);
+  try { await api('foto', C.pin, id, await zmensi(f, 1600)); toast('Fotka uložená'); sync(); }
+  catch(err) { toast(jeSiet(err) ? 'Fotka sa dá nahrať len so signálom.' : 'Fotka sa neuložila: ' + err.message, 3500); }
+});
+$('#foto').addEventListener('click', () => $('#foto').classList.remove('on'));
+$('#importVstup').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const v = vrch(); if (!v) return;
+  try {
+    if (!window.XLSX) throw new Error('Knižnica pre Excel sa ešte načítava, skúste o chvíľu.');
+    const wb = XLSX.read(await f.arrayBuffer(), {cellDates:true});
+    const meno = wb.SheetNames.find(n => /dump/i.test(n)) || wb.SheetNames.find(n => { const r = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, range:0}); return r[0] && r[0].includes('VYROBNE_CISLO'); });
+    if (!meno) throw new Error('V súbore nie je hárok so stĺpcom VYROBNE_CISLO.');
+    const riadky = XLSX.utils.sheet_to_json(wb.Sheets[meno], {header:1, defval:'', raw:true});
+    const data = spinNaZaznamy(riadky);
+    Object.assign(v.st, {faza:'nahlad', subor:f.name, data, suhrn:data.suhrn, chyba:'', popis:'stav k ' + new Date(f.lastModified || Date.now()).toLocaleDateString('sk-SK')});
+  } catch(err) { v.st.faza = 'vyber'; v.st.chyba = err.message; }
+  renderModal();
+});
+
+/* ---------- Excel výstupy ---------- */
+function list(wb, nazov, hlav, riadky, sirky){
+  const ws = XLSX.utils.aoa_to_sheet([hlav].concat(riadky));
+  ws['!cols'] = (sirky || hlav.map(() => 16)).map(w => ({wch:w}));
+  ws['!autofilter'] = {ref:XLSX.utils.encode_range({s:{r:0, c:0}, e:{r:riadky.length, c:hlav.length - 1}})};
+  XLSX.utils.book_append_sheet(wb, ws, nazov);
+}
+const d10 = s => s ? fmtD(s) : '';
+function stiahniVydajniky(arr){
+  const wb = XLSX.utils.book_new();
+  list(wb, 'Výdajníky', ['Výrobné číslo','Ev. č.','Model','Stav','Miesto','Mesto','IČO','Od kedy','Posl. sanitácia','Posl. oprava','Revízia','Návrh na vyradenie','Vlastník','Zaradený','Obst. cena €','Poznámka'],
+    arr.map(v => { const m = miesto(v.miesto) || {}; return [v.vc, v.ev, v.model, STAVY[v.stav] || v.stav, m.nazov || v.miesto, m.mesto || '', m.ico || '', d10(v.odKedy), d10(v.sanitacia), d10(v.oprava), d10(v.revizia), v.navrh, v.vlastnik || 'náš', d10(v.zaradenie), num(v.obstCena), v.pozn]; }),
+    [22,9,28,20,36,16,11,11,12,12,11,16,18,11,11,30]);
+  XLSX.writeFile(wb, `Vydajniky_${dnes()}.xlsx`);
+}
+function stiahniStav(){
+  const wb = XLSX.utils.book_new(), zak = {};
+  for (const v of Object.values(V.vyd)) if (v.stav === 'zakaznik') (zak[v.miesto] = zak[v.miesto] || []).push(v);
+  const mm = id => miesto(id) || {nazov:id};
+  list(wb, 'Po zákazníkoch', ['Zákazník (odberné miesto)','Mesto','IČO','Fakturačná firma','IČO fakt.','Kusov spolu','z toho naše','z toho zákaznícke'],
+    Object.entries(zak).sort((a, b) => mm(a[0]).nazov.localeCompare(mm(b[0]).nazov, 'sk')).map(([id, a]) => { const m = mm(id); return [m.nazov, m.mesto, m.ico, m.fakt, m.faktIco, a.length, a.filter(nasVlastnik).length, a.filter(v => !nasVlastnik(v)).length]; }),
+    [40,18,11,40,11,10,10,12]);
+  list(wb, 'Kusy', ['Zákazník','Mesto','IČO','Fakturačná firma','Výrobné číslo','Ev. č.','Model','Vlastník','U zákazníka od','Posl. sanitácia'],
+    Object.values(V.vyd).filter(v => v.stav === 'zakaznik').map(v => { const m = mm(v.miesto); return [m.nazov, m.mesto, m.ico, m.fakt, v.vc, v.ev, v.model, v.vlastnik || 'náš', d10(v.odKedy), d10(v.sanitacia)]; }),
+    [40,18,11,40,22,9,28,18,13,13]);
+  XLSX.writeFile(wb, `Vydajniky_u_zakaznikov_${dnes()}.xlsx`);
+}
+function stiahniVykaz(r, od, po){
+  const wb = XLSX.utils.book_new(), z = {};
+  const mm = id => miesto(id) || {nazov:id || '—'};
+  const zak = id => (z[id] = z[id] || {vydaj:0, prijem:0, sanit:0, oprava:0, porucha:0});
+  for (const p of r.pohyby) { if (p.typ === 'vydaj') zak(p.kam).vydaj++; if (p.typ === 'prijem') zak(p.z).prijem++; }
+  for (const s of r.servis) { if (!jeSklad(s.miesto) && s.miesto) { if (s.typ === 'sanitacia') zak(s.miesto).sanit++; if (s.typ === 'oprava') zak(s.miesto).oprava++; if (s.typ === 'porucha') zak(s.miesto).porucha++; } }
+  list(wb, 'Po zákazníkoch', ['Zákazník','Mesto','IČO','Fakturačná firma','IČO fakt.','Výdaje','Zvozy','Sanitácie u zák.','Opravy u zák.','Poruchy','Teraz u zákazníka'],
+    Object.entries(z).filter(([id]) => id && !jeSklad(id)).sort((a, b) => mm(a[0]).nazov.localeCompare(mm(b[0]).nazov, 'sk')).map(([id, x]) => { const m = mm(id);
+      return [m.nazov, m.mesto, m.ico, m.fakt, m.faktIco, x.vydaj, x.prijem, x.sanit, x.oprava, x.porucha, (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik').length]; }),
+    [40,18,11,40,11,8,8,10,10,8,10]);
+  list(wb, 'Pohyby', ['Dátum a čas','Druh','Výrobné číslo','Model','Odkiaľ','Kam','Dodací list','Kto','Poznámka','Podpísal'],
+    r.pohyby.map(p => [fmtCas(p.cas), TYPY_POHYBU[p.typ] || p.typ, p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, mm(p.kam).nazov, p.dl, p.kto, p.pozn, String(p.podpis || '').split('|')[0]]), [16,22,22,26,34,34,12,18,30,20]);
+  list(wb, 'Servis', ['Dátum a čas','Druh','Výsledok','Výrobné číslo','Model','Kde','Popis','Diely','Kto'],
+    r.servis.map(s => [fmtCas(s.cas), TYPY_SERVISU[s.typ] || s.typ, s.vysledok === 'caka' ? 'čaká na diel' : s.vysledok, s.vc, (V.vyd[s.vyd] || {}).model || '', mm(s.miesto).nazov, s.popis, s.diely, s.kto]), [16,18,16,22,26,30,40,24,18]);
+  const kto = {};
+  for (const s of r.servis) if (s.typ === 'sanitacia') kto[s.kto] = (kto[s.kto] || 0) + 1;
+  list(wb, 'Sanitácie po ľuďoch', ['Kto','Sanitácií'], Object.entries(kto).sort((a, b) => b[1] - a[1]), [24,10]);
+  XLSX.writeFile(wb, `Vykaz_vydajniky_${od}_${po}.xlsx`);
+}
+
+/* ---------- štart ---------- */
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('#scan').classList.contains('on')) zastavSken(); else if ($('#foto').classList.contains('on')) $('#foto').classList.remove('on'); else if (STACK.length) spat(); } });
+obnovView();
+if (C.pin && SRV) { postavNav(); vykresli(); sync(); }
+else if (C.pin) { nacitajVsetko().then(() => sync()).catch(() => ukazLogin()); }
+else ukazLogin();
+obnovSyncStav();
+</script>
+<script>
+// offline štart a ikona na ploche (service worker); po novej verzii sa appka sama obnoví pri ďalšom otvorení
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
