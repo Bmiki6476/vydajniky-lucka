@@ -1,7 +1,7 @@
-// Service worker Výdajníky Lucka – verzia 9eea79e13f
+// Service worker Výdajníky Lucka – verzia cdb120a15c
 // Stránka: najprv sieť (nová verzia hneď), bez signálu z pamäte. Knižnice a ikony: z pamäte.
 // Volania servera (script.google.com) sa NIKDY neukladajú – offline fronta zmien je v appke.
-const CACHE = 'vydajniky-9eea79e13f';
+const CACHE = 'vydajniky-cdb120a15c';
 const ZAKLAD = ['./', 'index.html', 'manifest.webmanifest', 'ikona-192.png', 'ikona-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 const KNIZNICE = ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ZAKLAD)).then(() => self.skipWaiting())); });

@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9eea79e13f";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "cdb120a15c";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -251,7 +251,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
       <h1 class="brand"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1" opacity=".75"/><rect x="17" y="3" width="4" height="5" rx="1" opacity=".5"/><rect x="3" y="10" width="5" height="5" rx="1" opacity=".75"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="3" y="17" width="5" height="4" rx="1" opacity=".5"/></svg><span>Výdajníky <b>Lucka</b></span></h1>
       <button class="sync" id="syncBtn" type="button" data-act="tab" data-tab="viac"><i></i><span id="syncTxt">…</span></button>
       <button class="iconbtn" type="button" data-act="skenNajdi" aria-label="Skenovať QR kód"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/></svg><span>Skenovať</span></button>
-      <button class="who" id="whoBtn" type="button" data-act="tab" data-tab="viac"></button>
+      <button class="who" id="whoBtn" type="button" data-act="ucet" aria-label="Môj účet – odhlásiť"></button>
     </div>
   </div>
 </header>
@@ -946,7 +946,7 @@ TABS.viac = {nazov:'Viac',
   kostra: () => `
     <div class="card"><h3>Prihlásený</h3><dl class="dl" id="xJa"></dl>
       <div class="fld" style="margin-top:12px"><label for="xSklad">Môj sklad (sem idú prevzaté výdajníky)</label><select id="xSklad"></select></div>
-      <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="odhlas">Odhlásiť z tohto zariadenia</button></div></div>
+      <div class="actions two" style="margin-top:12px"><button class="btn danger" type="button" data-act="odhlas">Odhlásiť sa</button></div></div>
     <div class="card"><h3>Synchronizácia</h3><dl class="dl" id="xSync"></dl>
       <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="syncTeraz">Synchronizovať teraz</button><button class="btn" type="button" data-act="nacitajZnova">Načítať všetko znova</button></div>
       <p class="note">Každá zmena sa hneď posiela do spoločnej databázy. Bez signálu zmeny čakajú v mobile a odošlú sa samé. Kým čakajú, neodhlasujte sa.</p></div>
@@ -1864,7 +1864,14 @@ const ACT = {
   historia(d){ const v = vrch(); api('historia', C.pin, d.id).then(h => { v.st.historia = h; renderModal(); }).catch(e => toast(jeSiet(e) ? 'História sa dá načítať len so signálom.' : e.message, 3500)); toast('Načítavam…', 1200); },
   fotkaPridaj(d){ fotkaPre = d.id; $('#fotoVstup').value = ''; $('#fotoVstup').click(); },
   fotkaUkaz(d){ api('fotoData', C.pin, d.f).then(src => { $('#fotoImg').src = src; $('#foto').classList.add('on'); }).catch(e => toast(jeSiet(e) ? 'Fotka sa dá pozrieť len so signálom.' : e.message, 3500)); toast('Načítavam fotku…', 1500); },
-  odhlas(){ odhlas(false); },
+  odhlas(){ zavriModal(); odhlas(false); },
+  ucet(){ otvor({
+    hlavicka: () => ({nazov:esc(C.meno || ''), sub:esc([ROLY[rola()] || '', mojSklad() ? nazovMiesta(mojSklad()) : ''].filter(Boolean).join(' · '))}),
+    telo: () => `${OUT.length ? `<div class="warnbox" style="margin:0">V mobile čaká ${OUT.length} neodoslaných zmien – pred odhlásením počkajte na signál.</div>` : ''}
+      <button class="btn danger big" type="button" data-act="odhlas">Odhlásiť sa</button>
+      <button class="btn" type="button" data-act="ucetNastavenia">Nastavenia a synchronizácia</button>`
+  }); },
+  ucetNastavenia(){ zavriModal(); ACT.tab({tab:'viac'}); },
   syncTeraz(){ sync(); },
   async nacitajZnova(){ if (OUT.length) { toast('Najprv musia odísť čakajúce zmeny.'); sync(); return; } try { await nacitajVsetko(); toast('Načítané'); } catch(e) { toast(e.message, 3500); } },
   ludia(){ otvor(vLudia()); },
