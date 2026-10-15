@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "cdb120a15c";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "d8c87bb427";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1227,7 +1227,8 @@ function vStitky(ids){
       if (!window.QRCode) return '<div class="warnbox">Knižnica na QR kódy sa ešte načítava – skúste o chvíľu.</div>';
       st.obr = st.obr || st.ids.map(id => V.vyd[id]).filter(Boolean).map(v => ({id:v.id, png:stitokObrazok(v)}));
       return `<div class="stitky">${st.obr.map(o => `<img src="${o.png}" alt="Štítok ${esc(o.id)}">`).join('')}</div>
-        <div class="actions two"><button class="btn pri" type="button" data-act="stitkyTlac">Tlačiť</button><button class="btn" type="button" data-act="stitkyPng">Stiahnuť obrázky (PNG)</button></div>
+        ${navigator.canShare && /Android|iPhone|iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<button class="btn pri big" type="button" data-act="stitkyZdielaj">Tlačiť cez Brother (tablet / mobil)</button>' : ''}
+        <div class="actions two"><button class="btn${navigator.maxTouchPoints > 0 ? '' : ' pri'}" type="button" data-act="stitkyTlac">Tlačiť</button><button class="btn" type="button" data-act="stitkyPng">Stiahnuť obrázky (PNG)</button></div>
         <p class="note" style="margin:0">Tlač: v okne tlače vyberte tlačiareň Brother a pásku 36 mm. Alebo stiahnite obrázky a vložte ich do P-touch Editora. Štítok nalepte vedľa výrobného štítku – QR prečíta aplikácia aj Flex.</p>`;
     }
   };
@@ -1714,6 +1715,14 @@ const ACT = {
   stitky(d){ otvor(vStitky([d.id])); },
   stitkyFilter(){ const r = TABS.vydajniky.filtrovane(); if (r.length > 60 && !confirm(`Vo filtri je ${r.length} výdajníkov. Pripraviť štítky pre prvých 60?`)) return; otvor(vStitky(r.slice(0, 60).map(v => v.id))); },
   stitkyTlac(){ const st = vrch().st; $('#tlac').innerHTML = st.obr.map(o => `<img src="${o.png}" alt="">`).join(''); setTimeout(() => window.print(), 150); },
+  stitkyZdielaj(){
+    // tablet / mobil: štítky sa pošlú do appky Brother iPrint&Label (Zdieľať → iPrint&Label → Tlačiť)
+    const st = vrch().st;
+    const subory = st.obr.map(o => { const b = atob(o.png.split(',')[1]), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      return new File([u], 'stitok_' + o.id.replace(/[^\w.-]+/g, '_') + '.png', {type:'image/png'}); });
+    if (!navigator.canShare || !navigator.canShare({files:subory})) return toast('Toto zariadenie nevie zdieľať obrázky – použite Stiahnuť obrázky.', 4000);
+    navigator.share({files:subory, title:'QR štítky výdajníkov'}).catch(e => { if (e && e.name !== 'AbortError') toast('Zdieľanie zlyhalo: ' + e.message, 4000); });
+  },
   stitkyPng(){ const st = vrch().st; st.obr.forEach((o, i) => setTimeout(() => { const a = document.createElement('a'); a.href = o.png; a.download = 'stitok_' + o.id.replace(/[^\w.-]+/g, '_') + '.png'; document.body.appendChild(a); a.click(); a.remove(); }, i * 400)); },
   podpisUloha(){ const u = V.ul[vrch().st.id]; otvor(vPodpis({miesto:u.miesto, uloha:u.id, pohyby:Object.values(V.poh).filter(p => p.uloha === u.id).map(p => p.id)})); },
   podpisRychly(){ const st = vrch().st; otvor(vPodpis({miesto:st.miesto || (V.poh[st.ids[0]] || {}).z || '', uloha:'', pohyby:st.ids.slice()})); },
