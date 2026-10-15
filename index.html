@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "1bd1348ac7";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "5574f5718f";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -363,7 +363,9 @@ function dielyNavrh(){
     const n = p.replace(/\s+\d+\s*×$/, '').trim();
     if (n && !n.includes(',') && !DIELY_ZOZNAM.includes(n)) pouzite.set(n, (pouzite.get(n) || 0) + 1);
   }
-  return DIELY_ZOZNAM.concat([...pouzite.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]));
+  const kat = Object.keys((V && V.dk) || {}).filter(n => !DIELY_ZOZNAM.includes(n) && V.dk[n].aktivny !== 'nie');
+  kat.forEach(n => pouzite.delete(n));
+  return DIELY_ZOZNAM.concat(kat, [...pouzite.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]));
 }
 const NEZ = 'NEZ';   // pomocný sklad „Vrátené – sklad nezistený“ z importu SPIN
 const NOVE = 'NOVE26';   // pomocný sklad „Nové 2026 – Lúka alebo BA“ (zaradené 2026 bez dokladu)
@@ -420,6 +422,7 @@ let lsChyba = false;
 function ulozLS(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) { if (!lsChyba) toast('Mobil neukladá údaje lokálne – nezatvárajte stránku, kým sa všetko neodošle.', 4000); lsChyba = true; } }
 const vibr = ms => { if (navigator.vibrate) navigator.vibrate(ms || 60); };
 const IKONY = {
+  diely:'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
   prehlad:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   vydajniky:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 7h4M9 12h2M13 12h2"/>',
   miesta:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
@@ -477,6 +480,7 @@ function naMapu(arr, k){ const o = {}; for (const r of arr || []) o[r[k]] = r; r
 function zCache(c){
   if (!c || !c.polia) return null;
   return {rev:c.rev, meta:c.meta, polia:c.polia, poliaMiest:c.poliaMiest, ludia:c.ludia || [],
+    dk:naMapu(c.dk, 'nazov'), dp:naMapu(c.dp, 'id'), maDiely:!!c.maDiely,
     vyd:mapaZPoli(c.vyd, c.polia), mie:mapaZPoli(c.mie, c.poliaMiest), poh:naMapu(c.poh,'id'), ser:naMapu(c.ser,'id'), ul:naMapu(c.ul,'id')};
 }
 function ulozCache(){
@@ -484,7 +488,8 @@ function ulozCache(){
   const p = SRV.polia, pm = SRV.poliaMiest;
   const balik = bezSpin => JSON.stringify({rev:SRV.rev, meta:SRV.meta, polia:p, poliaMiest:pm, ludia:SRV.ludia,
     vyd:Object.values(SRV.vyd).map(o => p.map(k => bezSpin && k === 'spin' ? '' : o[k] ?? '')), mie:Object.values(SRV.mie).map(o => pm.map(k => o[k] ?? '')),
-    poh:Object.values(SRV.poh), ser:Object.values(SRV.ser), ul:Object.values(SRV.ul)});
+    poh:Object.values(SRV.poh), ser:Object.values(SRV.ser), ul:Object.values(SRV.ul),
+    dk:Object.values(SRV.dk || {}), dp:Object.values(SRV.dp || {}), maDiely:!!SRV.maDiely});
   try { localStorage.setItem(K_CACHE, balik(false)); return; } catch(e) {}
   try { localStorage.setItem(K_CACHE, balik(true)); return; } catch(e) {}
   try { localStorage.removeItem(K_CACHE); } catch(e) {}
@@ -497,7 +502,8 @@ function aplikuj(v, op){
     const x = Object.assign({}, s), z = x.miesto;
     prechod(x, op); x.cak = true; v.vyd[x.id] = x;
     if (op.t === 'pohyb') v.poh[op.id] = {id:op.id, cas:op.cas, vyd:x.id, vc:x.vc, typ:op.typ, z, kam:x.miesto, stavPo:x.stav, dl:op.dl || '', pozn:op.pozn || '', uloha:op.uloha || '', kto:C.meno, cak:true};
-    else v.ser[op.id] = {id:op.id, cas:op.cas, vyd:x.id, vc:x.vc, typ:op.typ, vysledok:op.vysledok || '', popis:op.popis || '', diely:op.diely || '', miesto:x.miesto, kto:C.meno, cak:true};
+    if (op.t === 'servis' && op.typ === 'oprava') rozdelDiely(op.diely).forEach((d, i) => { v.dp[op.id + '_' + i] = {id:op.id + '_' + i, cas:op.cas, nazov:d.n, ks:-d.ks, druh:'spotreba', vyd:x.id, kto:C.meno, cak:true}; });
+    if (op.t === 'servis') v.ser[op.id] = {id:op.id, cas:op.cas, vyd:x.id, vc:x.vc, typ:op.typ, vysledok:op.vysledok || '', popis:op.popis || '', diely:op.diely || '', miesto:x.miesto, kto:C.meno, cak:true};
   } else if (op.t === 'vydajnik') {
     const s = v.vyd[op.vyd];
     if (!s && !op.novy) return;
@@ -510,6 +516,10 @@ function aplikuj(v, op){
     const text = (op.meno || 'zákazník') + '||' + op.cas;
     for (const id of op.pohyby || []) if (v.poh[id]) v.poh[id] = Object.assign({}, v.poh[id], {podpis:text});
     if (op.uloha && v.ul[op.uloha]) v.ul[op.uloha] = Object.assign({}, v.ul[op.uloha], {podpis:text, cak:true});
+  } else if (op.t === 'diel') {
+    if (op.akcia === 'karta') v.dk[op.nazov] = Object.assign({}, v.dk[op.nazov] || {nazov:op.nazov, aktivny:'áno'}, op.patch || {}, {cak:true});
+    else { v.dp[op.id] = {id:op.id, cas:op.cas, nazov:op.nazov, ks:+op.ks || 0, druh:op.akcia === 'korekcia' ? 'korekcia' : 'prijem', pozn:op.pozn || '', kto:C.meno, cak:true};
+      if (!v.dk[op.nazov]) v.dk[op.nazov] = {nazov:op.nazov, aktivny:'áno', cak:true}; }
   } else if (op.t === 'uloha') {
     const s = v.ul[op.id], p = Object.assign({}, op.patch || {});
     const u = Object.assign(s ? Object.assign({}, s) : {id:op.id, stav:'nova', zadal:C.meno, vytvorene:op.cas}, p, {cak:true});
@@ -519,7 +529,8 @@ function aplikuj(v, op){
 }
 function obnovView(){
   if (!SRV) { V = null; return; }
-  V = {vyd:Object.assign({}, SRV.vyd), mie:Object.assign({}, SRV.mie), poh:Object.assign({}, SRV.poh), ser:Object.assign({}, SRV.ser), ul:Object.assign({}, SRV.ul)};
+  V = {vyd:Object.assign({}, SRV.vyd), mie:Object.assign({}, SRV.mie), poh:Object.assign({}, SRV.poh), ser:Object.assign({}, SRV.ser), ul:Object.assign({}, SRV.ul),
+    dk:Object.assign({}, SRV.dk || {}), dp:Object.assign({}, SRV.dp || {})};
   for (const op of POTVRD) if (op.rv > SRV.rev) aplikuj(V, op);
   for (const op of OUT) aplikuj(V, op);
   V.poMieste = {}; V.pocty = {};
@@ -551,6 +562,12 @@ function prijmi(r, polia){
   for (const x of r.pohyby || []) SRV.poh[x.id] = x;
   for (const x of r.servis || []) SRV.ser[x.id] = x;
   for (const x of r.ulohy || []) SRV.ul[x.id] = x;
+  // sklad súčiastok (server ho posiela až po aktualizácii Code.gs)
+  if (Array.isArray(r.suciastky)) {
+    SRV.maDiely = true; SRV.dk = SRV.dk || {}; SRV.dp = SRV.dp || {};
+    for (const x of r.suciastky) SRV.dk[x.nazov] = x;
+    for (const x of r.dielPohyby || []) SRV.dp[x.id] = x;
+  }
   if (r.ludia) SRV.ludia = r.ludia;
   // v mobile držíme len posledné týždne pohybov a servisu
   const hr = new Date(Date.now() - 35 * 864e5).toISOString();
@@ -719,7 +736,7 @@ const kpi = (l, v, cls, act) => `<button class="kpi" type="button" ${act || ''}>
 const ROLE_TABS = {sofer:['domov','ulohy','miesta','hladaj','viac'], sanitar:['domov','servis','sanitacia','vydajniky','viac'],
   referentka:['domov','prehlad','vydajniky','miesta','ulohy'], admin:['domov','prehlad','vydajniky','miesta','ulohy']};
 // záložky, na ktoré sa ide z dlaždíc na úvodnej obrazovke (v spodnej lište nie sú)
-const ROLE_EXTRA = {sofer:[], sanitar:['hladaj','miesta','ulohy'], referentka:['servis','sanitacia','hladaj','viac'], admin:['servis','sanitacia','hladaj','viac']};
+const ROLE_EXTRA = {sofer:[], sanitar:['hladaj','miesta','ulohy','diely'], referentka:['servis','sanitacia','hladaj','viac','diely'], admin:['servis','sanitacia','hladaj','viac','diely']};
 const TABS = {};
 function postavNav(){
   const t = ROLE_TABS[rola()] || ROLE_TABS.sofer;
@@ -752,7 +769,10 @@ TABS.prehlad = {nazov:'Prehľad',
   kostra: () => `
     <div class="kpis k6" id="pKpi"></div>
     <div class="card"><h3>Po skladoch</h3><div class="tscroll" id="pSklady"></div></div>
-    <div class="card"><h3>Dlho u zákazníka – na výmenu</h3><p class="note" id="pTerminInfo" style="margin-top:0"></p><div id="pTermin"></div></div>
+    <div class="card"><h3>Dlho u zákazníka – na výmenu</h3><p class="note" id="pTerminInfo" style="margin-top:0"></p>
+      <button class="btn pri" type="button" data-act="navrhy" id="pNavrhyBtn" style="margin-bottom:10px">Naplánovať výmeny</button><div id="pTermin"></div></div>
+    <div class="card"><h3>Poruchovosť modelov</h3><p class="note" style="margin-top:0">Ktoré modely sa kazia najčastejšie a čo sa na nich mení. Počíta sa z celej histórie (treba signál).</p>
+      <button class="btn" type="button" data-act="poruchovost">Vypočítať poruchovosť</button><div id="pPoruch" style="margin-top:10px"></div></div>
     <div class="card"><h3>Posledné dni</h3><div class="tscroll" id="pAkt"></div></div>
     <div class="card"><h3>Výkaz pre fakturáciu</h3>
       <div class="grid2"><div class="fld"><label for="vOd">Od</label><input type="date" id="vOd"></div><div class="fld"><label for="vDo">Do</label><input type="date" id="vDo"></div></div>
@@ -778,6 +798,8 @@ TABS.prehlad = {nazov:'Prehľad',
     const pt = poTermine(), poZak = {};
     for (const v of pt) (poZak[v.miesto] = poZak[v.miesto] || []).push(v);
     const zak = Object.entries(poZak).sort((a, b) => b[1].length - a[1].length);
+    { const nv = navrhyVymen().filter(x => !x.ma).length; const b = $('#pNavrhyBtn'); if (b) { b.textContent = nv ? `Naplánovať výmeny (${nv} zákazníkov bez úlohy)` : 'Všetky výmeny sú naplánované'; b.disabled = !nv; } }
+    vykresliPoruchovost();
     $('#pTerminInfo').textContent = `${pt.length} ${sk(pt.length,'výdajník je','výdajníky sú','výdajníkov je')} u zákazníka bez výmeny a sanitácie dlhšie ako ${SRV.meta.sanitMesiacov} mesiacov – ${zak.length} zákazníkov.`;
     $('#pTermin').innerHTML = zak.length ? `<div class="list">${zak.slice(0, 25).map(([id, a]) => { const m = miesto(id) || {nazov:id, mesto:''};
       const naj = a.map(v => [v.odKedy, v.sanitacia].filter(Boolean).sort().pop() || '').sort()[0];
@@ -864,12 +886,14 @@ TABS.ulohy = {nazov:'Úlohy',
       <div class="group"><h2>Hotové dnes</h2></div><div id="uHotove"></div>
       <div class="group"><h2>Moje dnešné záznamy</h2></div><div id="uZaznamy"></div>`;
     const ludia = (SRV.ludia || []).filter(l => l.rola === 'sofer');
-    return `<div class="filters"><div class="row">
+    return `<div id="uNavrhy"></div><div class="filters"><div class="row">
       <div class="seg" style="flex:1 1 220px"><button type="button" data-act="uFil" data-k="otvorene" class="${C.f.ufil === 'otvorene' ? 'on' : ''}">Otvorené</button><button type="button" data-act="uFil" data-k="hotove" class="${C.f.ufil === 'hotove' ? 'on' : ''}">Hotové</button></div>
       <select id="uPre" style="flex:1 1 180px"><option value="">Všetci šoféri</option><option value="__nikto">Nepriradené</option>${ludia.map(l => `<option>${esc(l.meno)}</option>`).join('')}</select>
       <button class="btn pri small" type="button" data-act="novaUloha">+ Nová úloha</button></div></div><div id="uList"></div>`;
   },
   obnov(){
+    const un = $('#uNavrhy');
+    if (un) { const nv = navrhyVymen().filter(x => !x.ma).length; un.innerHTML = nv ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="flex:1 1 200px"><b>${nv} ${sk(nv, 'zákazník potrebuje', 'zákazníci potrebujú', 'zákazníkov potrebuje')} výmenu</b><div class="small muted">výdajníky dlhšie ako ${SRV.meta.sanitMesiacov} mesiacov bez výmeny / sanitácie</div></div><button class="btn pri" type="button" data-act="navrhy">Naplánovať</button></div>` : ''; }
     if (!jeRef()) {
       const m = mojeUlohy().sort((a, b) => String(a.termin || '9').localeCompare(String(b.termin || '9')) || String(a.vytvorene).localeCompare(String(b.vytvorene)));
       $('#uN').textContent = m.length || '';
@@ -986,6 +1010,7 @@ TABS.domov = {nazov:'Domov',
       ulohy: tile('ulohy', 'Úlohy', jeRef() ? 'pre šoférov' : 'čo treba vybaviť', 'data-act="tab" data-tab="ulohy"', 'ulohy'),
       vydaj: tile('vydaj', 'Výdaj zákazníkovi', 'vybrať zákazníka a skenovať', 'data-act="rychly" data-typ="vydaj"'),
       zvoz: tile('zvoz', r === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', 'skenovať prevzaté výdajníky', 'data-act="rychly" data-typ="prijem"'),
+      diely: tile('diely', 'Súčiastky', SRV.maDiely ? (diellMalo() ? diellMalo() + ' dochádza' : 'sklad dielov') : 'sklad dielov', 'data-act="tab" data-tab="diely"'),
       servis: tile('servis', 'Servis', 'sanitácia, oprava, revízia', 'data-act="tab" data-tab="servis"'),
       sanitacia: tile('sanitacia', 'Sanitácia', caka + ' čaká na sanitáciu', 'data-act="tab" data-tab="sanitacia"'),
       miesta: tile('miesta', 'Zákazníci', 'kontakty a výdajníky', 'data-act="tab" data-tab="miesta"'),
@@ -994,14 +1019,243 @@ TABS.domov = {nazov:'Domov',
       prehlad: tile('prehlad', 'Prehľad a výkazy', 'stav, výmeny, Excel', 'data-act="tab" data-tab="prehlad"'),
       viac: tile('nastav', jeAdmin() ? 'Správa a nastavenia' : 'Nastavenia', 'sklad, synchronizácia', 'data-act="tab" data-tab="viac"')
     };
-    const poradie = {sofer:['ulohy','vydaj','zvoz','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','vydajniky','hladaj','viac'],
-      referentka:['prehlad','ulohy','vydajniky','miesta','servis','viac'], admin:['prehlad','ulohy','vydajniky','miesta','servis','viac']}[r] || ['hladaj'];
+    const poradie = {sofer:['ulohy','vydaj','zvoz','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','vydajniky','diely','hladaj','viac'],
+      referentka:['prehlad','ulohy','vydajniky','miesta','servis','diely','viac'], admin:['prehlad','ulohy','vydajniky','miesta','servis','diely','viac']}[r] || ['hladaj'];
     return `<div class="hello"><h2>${esc(pozdrav)}, ${esc(String(C.meno || '').split(' ')[0])}</h2><div class="s">${esc(ROLY[r] || '')}${mojSklad() ? ' · ' + esc(nazovMiesta(mojSklad())) : ''} · ${esc(new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'numeric'}))}</div></div>
       ${instalKarta()}<div class="tiles">${poradie.map(k => T[k]).join('')}</div>
       ${jeRef() ? '' : '<div class="group"><h2>Moje dnešné záznamy</h2></div><div id="dZaznamy"></div>'}`;
   },
   obnov(){ const z = $('#dZaznamy'); if (z) z.innerHTML = mojeZaznamy(); obnovOdznaky(); }
 };
+
+/* SKLAD SÚČIASTOK – príjem, inventúra, spotreba sa odpíše sama pri oprave */
+function rozdelDiely(s){
+  return String(s || '').split(/;\s*/).map(p => { p = p.trim(); if (!p) return null; const m = /^(.*?)\s+(\d+)\s*×$/.exec(p); return m ? {n:m[1].trim(), ks:+m[2]} : {n:p, ks:1}; })
+    .filter(x => x && x.n && x.ks > 0);
+}
+function stavDielov(){ const s = {}; for (const p of Object.values(V.dp || {})) s[p.nazov] = (s[p.nazov] || 0) + (+p.ks || 0); return s; }
+function dielyZoznam(){
+  const stav = stavDielov(), spotr = {}, hr = new Date(Date.now() - 30 * 864e5).toISOString();
+  for (const p of Object.values(V.dp || {})) if (p.druh === 'spotreba' && String(p.cas) >= hr) spotr[p.nazov] = (spotr[p.nazov] || 0) - (+p.ks || 0);
+  const mena = new Set(Object.keys(V.dk || {}).concat(Object.keys(stav)));
+  return [...mena].filter(n => ((V.dk || {})[n] || {}).aktivny !== 'nie').map(n => {
+    const k = (V.dk || {})[n] || {}, ks = stav[n] || 0, min = num(k.min);
+    return {n, kod:k.kod || '', cena:num(k.cena), min, ks, spotr:spotr[n] || 0, malo:min != null && ks <= min};
+  }).sort((a, b) => (b.malo - a.malo) || a.n.localeCompare(b.n, 'sk'));
+}
+const diellMalo = () => SRV && SRV.maDiely ? dielyZoznam().filter(d => d.malo).length : 0;
+TABS.diely = {nazov:'Súčiastky',
+  kostra: () => `<div class="group"><h2>Sklad súčiastok</h2></div>
+    ${SRV.maDiely ? '' : '<div class="warnbox">Sklad súčiastok sa zapne po aktualizácii servera (Code.gs v Google Apps Script → Deploy → New version). Dovtedy sa súčiastky zapisujú len k opravám.</div>'}
+    <div class="row" style="flex-wrap:nowrap;margin:10px 0"><input type="search" id="dHladaj" placeholder="hľadať súčiastku alebo kód" autocomplete="off"><button class="btn pri small" type="button" data-act="dielKarta" style="white-space:nowrap">+ Nová</button><button class="btn small" type="button" data-act="dielExport">Excel</button></div>
+    <div id="dMalo"></div><div id="dZoznam"></div>
+    <p class="note">Príjem: ťuknite na súčiastku → Príjem. Spotreba sa odpíše sama, keď servis zapíše opravu so súčiastkami. Inventúra = zadáte, koľko kusov naozaj leží na sklade.</p>`,
+  obnov(){
+    const q = (($('#dHladaj') || {}).value || '').toLowerCase(), vs = dielyZoznam();
+    const z = vs.filter(d => !q || d.n.toLowerCase().includes(q) || d.kod.toLowerCase().includes(q));
+    const malo = vs.filter(d => d.malo);
+    $('#dMalo').innerHTML = malo.length ? `<div class="warnbox" style="margin-bottom:10px"><b>Dochádza (${malo.length}):</b> ${malo.map(d => esc(d.n) + ' – ' + d.ks + ' ks').join(', ')}</div>` : '';
+    $('#dZoznam').innerHTML = z.length ? `<div class="list">${z.map(d => `<button class="item" type="button" data-act="dielDetail" data-k="${esc(d.n)}"><div class="main" style="min-width:0;flex:1"><div class="name" style="white-space:normal">${esc(d.n)}${d.kod ? ` <span class="muted small">· ${esc(d.kod)}</span>` : ''}</div>
+        <div class="sub">${[d.spotr ? 'spotreba 30 dní ' + d.spotr + ' ks' : '', d.min != null ? 'minimum ' + d.min + ' ks' : '', d.cena != null ? fmtE(d.cena) + '/ks' : ''].filter(Boolean).join(' · ') || 'bez minima a ceny'}</div></div>
+        <b style="min-width:4em;text-align:right;font-size:17px;color:${d.malo ? 'var(--bad)' : d.ks <= 0 ? 'var(--warn)' : 'var(--ok)'}">${d.ks} ks</b></button>`).join('')}</div>`
+      : `<div class="empty-state">${q ? 'Nič sa nenašlo.' : 'Katalóg súčiastok je prázdny.'}${!q && SRV.maDiely ? '<div style="margin-top:10px"><button class="btn pri" type="button" data-act="dielBezne">Pridať bežné súčiastky výdajníkov</button></div>' : ''}</div>`;
+  }
+};
+document.addEventListener('input', e => { if (e.target.id === 'dHladaj') TABS.diely.obnov(); });
+function vDiel(n){
+  return {ziva:true, st:{n},
+    hlavicka: st => ({nazov:esc(st.n), sub:esc([((V.dk || {})[st.n] || {}).kod, 'na sklade ' + (stavDielov()[st.n] || 0) + ' ks'].filter(Boolean).join(' · '))}),
+    telo(st){
+      const k = (V.dk || {})[st.n] || {}, poh = Object.values(V.dp || {}).filter(p => p.nazov === st.n).sort((a, b) => String(b.cas).localeCompare(String(a.cas)));
+      const druh = {prijem:'Príjem', korekcia:'Inventúra', spotreba:'Spotreba'};
+      return `<dl class="dl"><dt>Na sklade</dt><dd><b>${stavDielov()[st.n] || 0} ks</b></dd><dt>Minimum</dt><dd>${k.min !== '' && k.min != null ? esc(k.min) + ' ks' : '—'}</dd><dt>Cena</dt><dd>${num(k.cena) != null ? fmtE(num(k.cena)) + ' / ks' : '—'}</dd>${k.pozn ? `<dt>Poznámka</dt><dd>${esc(k.pozn)}</dd>` : ''}</dl>
+        <div class="actions two"><button class="btn pri" type="button" data-act="dielPrijem">+ Príjem</button><button class="btn" type="button" data-act="dielInv">Inventúra</button></div>
+        <button class="btn" type="button" data-act="dielKarta" data-k="${esc(st.n)}">Upraviť (kód, cena, minimum)</button>
+        <div><b>Pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.slice(0, 40).map(p => `<div class="hrow${p.cak ? ' cak' : ''}"><div class="t">${esc(druh[p.druh] || p.druh)} <b style="color:${p.ks < 0 ? 'var(--bad)' : 'var(--ok)'}">${p.ks > 0 ? '+' : ''}${p.ks} ks</b></div>
+          <div class="m">${esc(fmtCas(p.cas))} · ${esc(p.kto || '')}${p.vyd ? ' · výdajník ' + esc((V.vyd[p.vyd] || {}).vc || p.vyd) : ''}${p.pozn ? ' · ' + esc(p.pozn) : ''}</div></div>`).join('') || '<div class="muted">Zatiaľ bez pohybov.</div>'}</div></div>`;
+    }
+  };
+}
+function vDielForm(n, druh){
+  const stav = stavDielov()[n] || 0;
+  return {st:{n, ks:'', pozn:''},
+    hlavicka: () => ({nazov: druh === 'prijem' ? 'Príjem – ' + esc(n) : 'Inventúra – ' + esc(n), sub:'teraz v evidencii ' + stav + ' ks'}),
+    telo: st => `<div class="fld"><label>${druh === 'prijem' ? 'Koľko kusov prišlo' : 'Koľko kusov naozaj leží na sklade'}</label><input type="number" inputmode="numeric" min="0" ${fIn('ks', st)}></div>
+      <div class="fld"><label>${druh === 'prijem' ? 'Dodávateľ / doklad (nepovinné)' : 'Poznámka (nepovinné)'}</label><input type="text" ${fIn('pozn', st)}></div>
+      <button class="btn pri" type="button" data-act="dielUloz" data-k="${druh}">Uložiť</button>`
+  };
+}
+function vDielKarta(n){
+  const k = n ? (V.dk || {})[n] || {} : {};
+  return {st:{nazov:n || '', kod:k.kod || '', cena:k.cena ?? '', min:k.min ?? '', pozn:k.pozn || ''},
+    hlavicka: () => ({nazov: n ? 'Upraviť – ' + esc(n) : 'Nová súčiastka'}),
+    telo: st => `${n ? '' : `<div class="fld"><label>Názov</label><input type="text" ${fIn('nazov', st, 'placeholder="napr. Termostat chladenia"')}></div>`}
+      <div class="fld"><label>Kód / číslo dielu (nepovinné)</label><input type="text" ${fIn('kod', st)}></div>
+      <div class="grid2"><div class="fld"><label>Cena za kus (€)</label><input type="number" inputmode="decimal" step="0.01" ${fIn('cena', st)}></div>
+        <div class="fld"><label>Minimum na sklade (ks)</label><input type="number" inputmode="numeric" ${fIn('min', st)}></div></div>
+      <div class="fld"><label>Poznámka</label><input type="text" ${fIn('pozn', st)}></div>
+      <button class="btn pri" type="button" data-act="dielKartaUloz" data-k="${esc(n || '')}">Uložiť</button>
+      ${n ? `<button class="btn danger" type="button" data-act="dielSkryt" data-k="${esc(n)}">Odstrániť z katalógu</button>` : ''}
+      <p class="note" style="margin:0">Pod minimom sa súčiastka ukáže červeno a v zozname „Dochádza“. Cena slúži na náklady opráv a poruchovosť modelov.</p>`
+  };
+}
+function stiahniDiely(){
+  const wb = XLSX.utils.book_new(), vs = dielyZoznam();
+  list(wb, 'Sklad', ['Súčiastka','Kód','Na sklade (ks)','Minimum','Cena €/ks','Hodnota €','Spotreba 30 dní'], vs.map(d => [d.n, d.kod, d.ks, d.min ?? '', d.cena ?? '', d.cena != null ? +(d.cena * Math.max(d.ks, 0)).toFixed(2) : '', d.spotr]), [30,14,12,10,10,12,14]);
+  const druh = {prijem:'príjem', korekcia:'inventúra', spotreba:'spotreba'};
+  list(wb, 'Pohyby', ['Dátum a čas','Súčiastka','Ks','Druh','Výdajník','Kto','Poznámka'], Object.values(V.dp || {}).sort((a, b) => String(a.cas).localeCompare(String(b.cas)))
+    .map(p => [fmtCas(p.cas), p.nazov, p.ks, druh[p.druh] || p.druh, p.vyd ? (V.vyd[p.vyd] || {}).vc || p.vyd : '', p.kto, p.pozn || '']), [16,30,8,12,22,18,30]);
+  XLSX.writeFile(wb, 'Sklad_suciastok_' + dnes() + '.xlsx');
+}
+
+/* NÁVRHY VÝMEN – zákazníci s výdajníkmi dlhšie ako N mesiacov bez výmeny/sanitácie, úlohy jedným ťuknutím */
+function navrhyVymen(){
+  const poZak = {};
+  for (const v of poTermine()) (poZak[v.miesto] = poZak[v.miesto] || []).push(v);
+  const maUlohu = new Set(otvoreneUlohy().filter(u => u.typ === 'vymena' || u.typ === 'odvoz').map(u => u.miesto));
+  return Object.entries(poZak).map(([id, a]) => ({id, a, ma:maUlohu.has(id)})).sort((x, y) => (x.ma - y.ma) || (y.a.length - x.a.length));
+}
+function vNavrhy(){
+  const n = navrhyVymen(), vyber = {};
+  n.filter(x => !x.ma).slice(0, 20).forEach(x => { vyber[x.id] = true; });   // predvolene 20 najväčších – nie stovky úloh jedným ťuknutím
+  return {ziva:false, st:{vyber, termin:denIso(Date.now() + 7 * 864e5), pre:'', n},
+    hlavicka: st => ({nazov:'Návrhy výmen', sub:`${st.n.filter(x => !x.ma).length} zákazníkov bez naplánovanej výmeny · nad ${SRV.meta.sanitMesiacov} mesiacov`}),
+    telo(st){
+      const sof = (SRV.ludia || []).filter(l => l.rola === 'sofer');
+      const poc = Object.keys(st.vyber).filter(k => st.vyber[k]).length;
+      return `<div class="grid2"><div class="fld"><label>Termín</label><input type="date" ${fIn('termin', st)}></div>
+        <div class="fld"><label>Pre šoféra</label>${fSel('pre', st, sof.map(l => [l.meno, l.meno]), 'ktokoľvek')}</div></div>
+        <div class="row" style="gap:6px"><button class="btn small" type="button" data-act="navrhVsetky" data-k="1">Označiť všetky (${st.n.filter(x => !x.ma).length})</button><button class="btn small" type="button" data-act="navrhVsetky" data-k="">Zrušiť označenie</button></div>
+        <div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 12px">${st.n.map(x => { const m = miesto(x.id) || {nazov:x.id, mesto:''};
+          return `<label class="checkrow"><input type="checkbox" data-nv="${esc(x.id)}" ${st.vyber[x.id] ? 'checked' : ''}><span><b>${esc(m.nazov)}</b> · ${x.a.length} ks${m.mesto ? ' · ' + esc(m.mesto) : ''}${x.ma ? ' <span class="pill p-ok">už naplánované</span>' : ''}</span></label>`; }).join('') || '<div class="muted" style="padding:10px 0">Nič po termíne.</div>'}</div>
+        <button class="btn pri big" type="button" data-act="navrhVytvor" ${poc ? '' : 'disabled'}>Vytvoriť úlohy výmeny (${poc})</button>
+        <p class="note" style="margin:0">Každý zákazník dostane úlohu „Vymeniť“ so zoznamom výrobných čísel. Šofér ju uvidí v Úlohách.</p>`;
+    }
+  };
+}
+document.addEventListener('change', e => {
+  const id = e.target.dataset && e.target.dataset.nv; if (id == null) return;
+  const v = vrch(); if (!v || !v.st.vyber) return;
+  v.st.vyber[id] = e.target.checked; renderModal();
+});
+
+/* PORUCHOVOSŤ MODELOV – z celej histórie servisu (server) + posledných opráv zo SPIN */
+const modelKluc = m => String(m || '').replace(/\s+vlastn.*$/i, '').replace(/\s+(19|20)\d\d$/, '').replace(/\s+/g, ' ').trim().toUpperCase() || '—';
+let PORUCH = null;
+function spocitajPoruchovost(servis){
+  const ceny = {}; for (const k of Object.values(V.dk || {})) if (num(k.cena) != null) ceny[k.nazov] = num(k.cena);
+  const M = {};
+  const m = k => M[k] || (M[k] = {model:k, kusy:0, sOpr:new Set(), opravy:0, poruchy:0, diely:{}, naklady:0});
+  for (const v of Object.values(V.vyd)) { if (v.stav === 'vyradeny') continue; const x = m(modelKluc(v.model)); x.kusy++; if (v.oprava) x.sOpr.add(v.id); }
+  for (const s of servis) {
+    const v = V.vyd[s.vyd]; if (!v || v.stav === 'vyradeny') continue;
+    const x = m(modelKluc(v.model));
+    if (s.typ === 'oprava') { x.opravy++; x.sOpr.add(v.id); }
+    if (s.typ === 'porucha') { x.poruchy++; x.sOpr.add(v.id); }
+    for (const d of rozdelDiely(s.diely)) { x.diely[d.n] = (x.diely[d.n] || 0) + d.ks; if (ceny[d.n] != null) x.naklady += ceny[d.n] * d.ks; }
+  }
+  return Object.values(M).filter(x => x.kusy >= 3).map(x => Object.assign(x, {pocetOpr:x.sOpr.size, pct:Math.round(x.sOpr.size / x.kusy * 100),
+    top:Object.entries(x.diely).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n, k]) => n + ' ' + k + '×').join(', ')})).sort((a, b) => b.pct - a.pct || b.kusy - a.kusy);
+}
+function vykresliPoruchovost(){
+  const el = $('#pPoruch'); if (!el || !PORUCH) return;
+  el.innerHTML = `<div class="tscroll"><table><tr><th>Model</th><th class="r">Kusov</th><th class="r">S opravou</th><th class="r">%</th><th class="r">Opravy</th><th class="r">Poruchy</th><th>Najčastejšie súčiastky</th><th class="r">Náklady</th></tr>
+    ${PORUCH.map(x => `<tr><td>${esc(x.model)}</td><td class="r">${x.kusy}</td><td class="r">${x.pocetOpr}</td><td class="r"><b style="color:${x.pct >= 40 ? 'var(--bad)' : x.pct >= 20 ? 'var(--warn)' : 'var(--ok)'}">${x.pct} %</b></td><td class="r">${x.opravy || ''}</td><td class="r">${x.poruchy || ''}</td><td>${esc(x.top)}</td><td class="r">${x.naklady ? fmtE(x.naklady) : ''}</td></tr>`).join('')}</table></div>
+    <div class="actions two" style="margin-top:10px"><button class="btn small" type="button" data-act="poruchExcel">Stiahnuť (Excel)</button></div>
+    <p class="note">„S opravou“ = kusy, ktoré mali aspoň jednu opravu alebo poruchu (zo SPIN aj z appky). Opravy, poruchy a súčiastky sú len zo zápisov v appke; náklady podľa cien v sklade súčiastok. Modely s menej ako 3 kusmi nie sú v tabuľke.</p>`;
+}
+
+/* PREBERACÍ PROTOKOL – PDF pre zákazníka (výdaj / zvoz), s podpisom ak bol */
+const PODPIS_LOK = {};   // podpisy z tohto mobilu (kým sa neodošlú na server): id pohybu → {meno, png}
+function pdfZJpeg(jpg, w, h){
+  const enc = new TextEncoder(), casti = [], off = [];
+  let dlzka = 0;
+  const pridaj = x => { const b = typeof x === 'string' ? enc.encode(x) : x; casti.push(b); dlzka += b.length; };
+  const obj = (n, telo) => { off[n] = dlzka; pridaj(n + ' 0 obj\n'); telo(); pridaj('\nendobj\n'); };
+  const obsah = 'q 595 0 0 842 0 0 cm /Im0 Do Q';
+  pridaj('%PDF-1.4\n');
+  obj(1, () => pridaj('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => pridaj('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
+  obj(3, () => pridaj('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>'));
+  obj(4, () => { pridaj(`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); pridaj(jpg); pridaj('\nendstream'); });
+  obj(5, () => pridaj(`<< /Length ${obsah.length} >>\nstream\n${obsah}\nendstream`));
+  const xref = dlzka;
+  pridaj('xref\n0 6\n0000000000 65535 f \n' + [1, 2, 3, 4, 5].map(n => String(off[n]).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+  return new Blob(casti, {type:'application/pdf'});
+}
+function protokolCanvas(miestoId, pohyby, podpis){
+  const W = 1240, H = 1754, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.fillStyle = '#111'; x.textBaseline = 'alphabetic';
+  const F = (px, w) => (w || '') + ' ' + px + 'px Inter, "Segoe UI", Arial, sans-serif';
+  const txt = (t, X, Y, px, w, farba) => { x.font = F(px, w); x.fillStyle = farba || '#111'; x.fillText(String(t || ''), X, Y); };
+  const m = miesto(miestoId) || {nazov:nazovMiesta(miestoId)};
+  const den = pohyby.length ? pohyby.map(p => p.cas).sort()[0] : new Date().toISOString();
+  x.fillStyle = '#c8113f'; x.fillRect(0, 0, W, 18);
+  txt('Protokol o odovzdaní', 90, 105, 40, '700'); txt('a prevzatí výdajníkov', 90, 150, 40, '700');
+  txt('Lucka · BUDIŠ a. s. · Priemyselný areál Lúka, 916 33 Lúka', 90, 190, 22, '400', '#555');
+  txt('Dátum: ' + new Date(den).toLocaleString('sk-SK', {day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'}), 90, 222, 22, '400', '#555');
+  x.strokeStyle = '#ccc'; x.lineWidth = 2; x.strokeRect(90, 255, W - 180, 190);
+  txt('Zákazník', 115, 295, 20, '600', '#777');
+  txt(m.nazov, 115, 335, 30, '700');
+  txt([m.adresa, [m.psc, m.mesto].filter(Boolean).join(' ')].filter(Boolean).join(', '), 115, 375, 22);
+  txt([m.ico ? 'IČO ' + m.ico : '', m.kontakt, m.telefon].filter(Boolean).join(' · '), 115, 413, 22, '400', '#555');
+  const vyd = pohyby.filter(p => p.typ === 'vydaj').length, zvoz = pohyby.filter(p => p.typ === 'prijem').length;
+  txt(`Vydané zákazníkovi: ${vyd} ks      Prevzaté od zákazníka: ${zvoz} ks`, 90, 490, 24, '600');
+  let y = 540;
+  const st = [90, 150, 520, 700, 1000];
+  x.fillStyle = '#f1f4f7'; x.fillRect(90, y - 32, W - 180, 46);
+  ['#', 'Výrobné číslo', 'Ev. č.', 'Model', 'Pohyb'].forEach((h, i) => txt(h, st[i] + 8, y, 20, '700', '#333'));
+  y += 48;
+  const zoz = pohyby.slice(0, 22);
+  zoz.forEach((p, i) => {
+    const v = V.vyd[p.vyd] || {};
+    txt(i + 1, st[0] + 8, y, 21); txt(jadro(p.vyd || v.id || p.vc), st[1] + 8, y, 21, '600'); txt(v.ev || '', st[2] + 8, y, 21);
+    let mod = String(v.model || ''); x.font = F(21); while (mod && x.measureText(mod).width > 285) mod = mod.slice(0, -1);
+    txt(mod, st[3] + 8, y, 21); txt(p.typ === 'vydaj' ? 'vydaný' : p.typ === 'prijem' ? 'prevzatý' : p.typ, st[4] + 8, y, 21);
+    x.strokeStyle = '#e3e7ec'; x.lineWidth = 1; x.beginPath(); x.moveTo(90, y + 14); x.lineTo(W - 90, y + 14); x.stroke();
+    y += 42;
+  });
+  if (pohyby.length > zoz.length) { txt(`… a ďalších ${pohyby.length - zoz.length} ks (úplný zoznam v evidencii)`, 98, y, 20, '400', '#555'); y += 40; }
+  y = Math.max(y + 40, 1400);
+  txt('Za Lucku: ' + (pohyby[0] ? pohyby[0].kto || '' : C.meno), 90, y, 22);
+  txt('Za zákazníka: ' + (podpis && podpis.meno ? podpis.meno : ''), 680, y, 22);
+  x.strokeStyle = '#999'; x.beginPath(); x.moveTo(680, y + 170); x.lineTo(W - 90, y + 170); x.stroke();
+  const obr = src => new Promise(ok => { if (!src) return ok(null); const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+  return Promise.all([obr(window.API_URL ? 'lucka_logo_alfa.png' : ''), obr(podpis && podpis.png)]).then(([logo, pod]) => {
+    if (logo) {   // logo Lucka v jej červenej farbe vpravo hore (maska z ikony appky)
+      const w = 230, h = Math.round(logo.height * w / logo.width), t = document.createElement('canvas'); t.width = w; t.height = h;
+      const tx = t.getContext('2d'); tx.drawImage(logo, 0, 0, w, h); tx.globalCompositeOperation = 'source-in'; tx.fillStyle = '#ce1141'; tx.fillRect(0, 0, w, h);
+      const d = tx.getImageData(0, 0, w, h);   // maska je čiernobiela – jas → priehľadnosť
+      const m = document.createElement('canvas'); m.width = w; m.height = h; const mx = m.getContext('2d'); mx.drawImage(logo, 0, 0, w, h);
+      const md = mx.getImageData(0, 0, w, h).data;
+      for (let i = 0; i < d.data.length; i += 4) { d.data[i] = 206; d.data[i + 1] = 17; d.data[i + 2] = 65; d.data[i + 3] = md[i]; }
+      tx.putImageData(d, 0, 0); x.drawImage(t, W - 90 - w, 40);
+    }
+    if (pod) { const s = Math.min(470 / pod.width, 150 / pod.height); x.drawImage(pod, 680, y + 15, pod.width * s, pod.height * s); }
+    txt('Vytvorené v aplikácii Výdajníky Lucka', 90, H - 50, 18, '400', '#999');
+    return c;
+  });
+}
+async function otvorProtokol(miestoId, pohyby){
+  pohyby = pohyby.filter(Boolean).sort((a, b) => String(a.cas).localeCompare(String(b.cas)));
+  if (!pohyby.length) return toast('Žiadne pohyby pre protokol.');
+  let podpis = null;
+  for (const p of pohyby) if (PODPIS_LOK[p.id]) { podpis = PODPIS_LOK[p.id]; break; }
+  if (!podpis) { const s = pohyby.map(p => String(p.podpis || '')).find(Boolean); if (s) { const [meno, f] = s.split('|'); podpis = {meno}; if (f) { try { podpis.png = await api('podpisData', C.pin, f); } catch(e) {} } } }
+  toast('Pripravujem protokol…', 1500);
+  const c = await protokolCanvas(miestoId, pohyby, podpis);
+  const jpg = c.toDataURL('image/jpeg', 0.88), b = atob(jpg.split(',')[1]), u = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  const m = miesto(miestoId) || {nazov:nazovMiesta(miestoId)};
+  const meno = ('Protokol ' + m.nazov + ' ' + dnes()).replace(/[^\w.\- áäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ]+/g, '').trim().replace(/\s+/g, '_') + '.pdf';
+  otvor({st:{}, hlavicka: () => ({nazov:'Preberací protokol', sub:esc(m.nazov) + ' · ' + pohyby.length + ' ks'}),
+    telo: () => `<img src="${jpg}" alt="Náhľad protokolu" style="width:100%;border-radius:10px;border:1px solid var(--line);background:#fff">
+      ${m.email ? `<div class="note" style="margin:0">E-mail zákazníka: <b>${esc(m.email)}</b></div>` : '<div class="note" style="margin:0">Zákazník nemá v evidencii e-mail – dá sa doplniť v karte zákazníka.</div>'}
+      ${navigator.canShare && navigator.canShare({files:[new File([u], meno, {type:'application/pdf'})]}) ? '<button class="btn pri big" type="button" data-act="protokolZdielaj">Poslať / zdieľať PDF</button>' : ''}
+      <button class="btn" type="button" data-act="protokolStiahni">Stiahnuť PDF</button>`});
+  PROTOKOL = {blob:pdfZJpeg(u, c.width, c.height), meno, email:m.email || '', nazov:m.nazov};
+}
+let PROTOKOL = null;
 
 /* SERVIS – rovnaký postup ako vo Flex Mobility: výdajník → karta + história → Záznam servisu → výber činnosti → popis */
 const SERVIS = {id:'', zoSanit:false, hist:null, histPre:'', zaznam:false, kod:'', popis:'', diely:'', vysledok:'opraveny', dovod:'', variant:'bezna', kroky:{}, firma:'', sprava:'', dielyZoz:[], dielNovy:''};
@@ -1063,7 +1317,7 @@ TABS.servis = {nazov:'Servis',
               <button class="btn small" type="button" data-act="srvDielKs" data-i="${i}" data-k="1" aria-label="Viac">+</button>
               <button class="btn small danger" type="button" data-act="srvDielZmaz" data-i="${i}" aria-label="Odstrániť">✕</button></div>`).join('')}</div>`
               : '<div class="muted small">Ťuknite na súčiastku nižšie (posúvajte do strany) alebo napíšte inú. Ak sa nič nemenilo, nechajte prázdne.</div>'}
-            <div class="chips" style="margin-top:8px">${dielyNavrh().map(n => `<button class="chip" type="button" data-act="srvDiel" data-k="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>
+            <div class="chips" style="margin-top:8px">${(() => { const sd = SRV.maDiely ? stavDielov() : {}; return dielyNavrh().map(n => `<button class="chip" type="button" data-act="srvDiel" data-k="${esc(n)}">+ ${esc(n)}${SRV.maDiely ? ` <b>${sd[n] || 0}</b>` : ''}</button>`).join(''); })()}</div>
             <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="srvDielNovy" data-sp="dielNovy" value="${esc(SERVIS.dielNovy)}" placeholder="iná súčiastka (názov, kód)" autocomplete="off"><button class="btn small" type="button" data-act="srvDielPridaj">Pridať</button></div>
           </div>`;
       } else if (SERVIS.kod === 'R') {
@@ -1153,7 +1407,7 @@ function vRychly(typ){
         <button class="btn pri big" type="button" data-act="rychlySken" ${pripraveny ? '' : 'disabled'}>${svg('qr')}Skenovať výdajníky</button>
         <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="rychlyRucne" ${pripraveny ? '' : 'disabled'}>Zapísať</button></div>
         ${st.zapisane.length ? `<div><b>Zapísané teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : ''}
-        ${st.ids.length ? '<button class="btn" type="button" data-act="podpisRychly">✍ Podpis zákazníka (voliteľné)</button>' : ''}
+        ${st.ids.length ? '<div class="actions two"><button class="btn" type="button" data-act="podpisRychly">✍ Podpis zákazníka (voliteľné)</button><button class="btn" type="button" data-act="protokolRychly">📄 Protokol (PDF)</button></div>' : ''}
         <p class="note" style="margin:0">Každý kus sa hneď zapíše (aj bez signálu – odošle sa neskôr). Pri zákazníkovi s úlohou použite radšej úlohu.</p>`;
     }
   };
@@ -1251,7 +1505,7 @@ function vPodpis(o){
       <div class="actions two"><button class="btn" type="button" data-act="podpisVymaz">Vymazať</button><button class="btn ok" type="button" data-act="podpisUloz">Uložiť podpis</button></div>`,
     po(st){
       const c = $('#podpisPlocha'), r = c.getBoundingClientRect();
-      c.width = Math.round(r.width); c.height = Math.round(r.height);
+      c.width = Math.round(r.width) || 600; c.height = Math.round(r.height) || 220;   // poistka, keby okno ešte nemalo rozmery
       const x = c.getContext('2d'); x.lineWidth = 2.6; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#0b1d33';
       let kreslim = false;
       const bod = e => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
@@ -1557,7 +1811,8 @@ function vKartaUlohy(id){
           <div class="actions two"><button class="btn pri" type="button" data-act="skenUloha" data-typ="vydaj">Vydať – skenovať</button><button class="btn pri" type="button" data-act="skenUloha" data-typ="prijem">Prevziať – skenovať</button></div>
           <div class="fld" style="margin-top:10px"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>
           <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="ulohaRucne" data-typ="vydaj">Vydať</button><button class="btn small" type="button" data-act="ulohaRucne" data-typ="prijem">Prevziať</button></div></div>` : ''}
-        ${poh.length ? `<div><b>Zapísané pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div></div>` : ''}
+        ${poh.length ? `<div><b>Zapísané pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div>
+          <button class="btn" type="button" data-act="protokolUloha" style="margin-top:8px;width:100%">📄 Protokol pre zákazníka (PDF)</button></div>` : ''}
         ${otv ? `<div class="fld"><label>Poznámka k vybaveniu</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. zákazník nebol, prídem zajtra"')}></div>
           <div class="actions two">${poh.length && !u.podpis ? '<button class="btn" type="button" data-act="podpisUloha">✍ Podpis zákazníka (voliteľné)</button>' : ''}<button class="btn ok" type="button" data-act="ulohaHotovo">Úloha hotová</button></div>` : `${poh.length && !u.podpis ? '<button class="btn" type="button" data-act="podpisUloha">✍ Podpis zákazníka (voliteľné)</button>' : ''}<button class="btn" type="button" data-act="ulohaZnova">Otvoriť znova</button>`}
         ${jeRef() ? `<div class="actions two"><button class="btn" type="button" data-act="fUloha" data-id="${esc(u.id)}">Upraviť</button>${otv ? '<button class="btn danger" type="button" data-act="ulohaZrus">Zrušiť úlohu</button>' : ''}</div>` : ''}`;
@@ -1732,7 +1987,9 @@ const ACT = {
     if (!st.ciary) return toast('Najprv sa podpíšte do bieleho poľa.');
     const c = $('#podpisPlocha'), o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
     const x = o.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, o.width, o.height); x.drawImage(c, 0, 0);
-    zmen({t:'podpis', miesto:v.o.miesto, uloha:v.o.uloha, pohyby:v.o.pohyby, meno:String(st.meno || '').trim(), png:o.toDataURL('image/png').split(',')[1]});
+    const png = o.toDataURL('image/png');
+    for (const id of v.o.pohyby) PODPIS_LOK[id] = {meno:String(st.meno || '').trim() || 'zákazník', png};
+    zmen({t:'podpis', miesto:v.o.miesto, uloha:v.o.uloha, pohyby:v.o.pohyby, meno:String(st.meno || '').trim(), png:png.split(',')[1]});
     vibr(); toast('Podpis uložený'); spat();
   },
   podpisUkaz(d){ api('podpisData', C.pin, d.pf).then(src => { $('#fotoImg').src = src; $('#foto').classList.add('on'); }).catch(e => toast(jeSiet(e) ? 'Podpis sa dá pozrieť len so signálom.' : e.message, 3500)); },
@@ -1760,6 +2017,56 @@ const ACT = {
   },
   srvZ(d){ otvorServis(d.id); SERVIS.zaznam = true; ACT.srvKod({k:d.k}); },
   srvDiel(d){ pridajDiel(d.k); },
+  dielDetail(d){ otvor(vDiel(d.k)); },
+  dielPrijem(){ if (!SRV.maDiely) return toast('Sklad súčiastok sa zapne po aktualizácii servera.', 3500); otvor(vDielForm(vrch().st.n, 'prijem')); },
+  dielInv(){ if (!SRV.maDiely) return toast('Sklad súčiastok sa zapne po aktualizácii servera.', 3500); otvor(vDielForm(vrch().st.n, 'korekcia')); },
+  dielUloz(d){
+    const st = vrch().st, ks = num(st.ks);
+    if (ks == null || ks < 0) return toast('Zadajte počet kusov.');
+    if (d.k === 'prijem') { if (!ks) return toast('Zadajte počet kusov.'); zmen({t:'diel', akcia:'prijem', nazov:st.n, ks, pozn:String(st.pozn || '').trim()}); toast('Príjem uložený: +' + ks + ' ks'); }
+    else { const roz = ks - (stavDielov()[st.n] || 0); if (!roz) { toast('Stav sedí, nič sa nemení.'); return spat(); } zmen({t:'diel', akcia:'korekcia', nazov:st.n, ks:roz, pozn:('inventúra: ' + ks + ' ks ' + String(st.pozn || '')).trim()}); toast('Inventúra uložená (' + (roz > 0 ? '+' : '') + roz + ' ks)'); }
+    vibr(); spat();
+  },
+  dielKarta(d){ if (!SRV.maDiely) return toast('Sklad súčiastok sa zapne po aktualizácii servera.', 3500); otvor(vDielKarta(d.k || '')); },
+  dielKartaUloz(d){
+    const st = vrch().st, n = d.k || String(st.nazov || '').replace(/[;×]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!n) return toast('Napíšte názov súčiastky.');
+    if (!d.k && (V.dk || {})[n] && V.dk[n].aktivny !== 'nie') return toast('Taká súčiastka už v katalógu je.');
+    zmen({t:'diel', akcia:'karta', nazov:n, patch:{kod:String(st.kod || '').trim(), cena:String(st.cena ?? '').replace(',', '.'), min:String(st.min ?? ''), pozn:String(st.pozn || '').trim(), aktivny:'áno'}});
+    toast('Uložené'); spat();
+  },
+  dielSkryt(d){ if (!confirm('Odstrániť „' + d.k + '“ z katalógu? Pohyby ostanú v histórii.')) return; zmen({t:'diel', akcia:'karta', nazov:d.k, patch:{aktivny:'nie'}}); zavriModal(); },
+  dielBezne(){ zmenViac(DIELY_ZOZNAM.filter(n => !(V.dk || {})[n]).map(n => ({t:'diel', akcia:'karta', nazov:n, patch:{aktivny:'áno'}}))); toast('Pridané bežné súčiastky – doplňte im ceny a minimá.', 3500); },
+  dielExport(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniDiely(); },
+  navrhy(){ otvor(vNavrhy()); },
+  navrhVsetky(d){ const st = vrch().st; st.n.forEach(x => { st.vyber[x.id] = !!d.k && !x.ma; }); renderModal(); },
+  navrhVytvor(){
+    const st = vrch().st, mes = SRV.meta.sanitMesiacov;
+    const ops = st.n.filter(x => st.vyber[x.id]).map(x => ({t:'uloha', patch:{typ:'vymena', miesto:x.id, pocet:String(x.a.length), termin:st.termin || '', pre:st.pre || '',
+      popis:`Výmena – u zákazníka dlhšie ako ${mes} mesiacov: ` + x.a.map(v => v.vc).join(', ')}}));
+    if (!ops.length) return;
+    zmenViac(ops); vibr(); toast(`Vytvorené ${ops.length} ${sk(ops.length, 'úloha', 'úlohy', 'úloh')} výmeny`, 3500); zavriModal();
+  },
+  async poruchovost(){
+    toast('Počítam poruchovosť…', 2500);
+    try { const r = await api('vykaz', C.pin, '2000-01-01', dnes()); PORUCH = spocitajPoruchovost(r.servis || []); vykresliPoruchovost(); }
+    catch(e) { toast(jeSiet(e) ? 'Poruchovosť sa dá spočítať len so signálom.' : e.message, 3500); }
+  },
+  poruchExcel(){
+    if (!window.XLSX || !PORUCH) return;
+    const wb = XLSX.utils.book_new();
+    list(wb, 'Poruchovosť', ['Model','Kusov','S opravou','%','Opravy (appka)','Poruchy (appka)','Najčastejšie súčiastky','Náklady €'], PORUCH.map(x => [x.model, x.kusy, x.pocetOpr, x.pct, x.opravy, x.poruchy, x.top, +x.naklady.toFixed(2)]), [30,8,10,6,12,12,40,12]);
+    XLSX.writeFile(wb, 'Poruchovost_modelov_' + dnes() + '.xlsx');
+  },
+  protokolUloha(){ const u = V.ul[vrch().st.id]; otvorProtokol(u.miesto, Object.values(V.poh).filter(p => p.uloha === u.id)); },
+  protokolRychly(){ const st = vrch().st, p = st.ids.map(id => V.poh[id]).filter(Boolean); otvorProtokol(st.miesto || (p.find(x => x.typ === 'prijem') || {}).z || (p[0] || {}).kam, p); },
+  protokolZdielaj(){
+    if (!PROTOKOL) return;
+    const f = new File([PROTOKOL.blob], PROTOKOL.meno, {type:'application/pdf'});
+    navigator.share({files:[f], title:'Preberací protokol – ' + PROTOKOL.nazov, text:'Dobrý deň, v prílohe posielame protokol o odovzdaní a prevzatí výdajníkov. Lucka – BUDIŠ a. s.'})
+      .catch(e => { if (e && e.name !== 'AbortError') toast('Zdieľanie zlyhalo: ' + e.message, 4000); });
+  },
+  protokolStiahni(){ if (!PROTOKOL) return; const a = document.createElement('a'); a.href = URL.createObjectURL(PROTOKOL.blob); a.download = PROTOKOL.meno; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); },
   instal(d, el){
     const e = window.__instal;
     if (e) {
