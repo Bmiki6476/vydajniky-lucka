@@ -16,7 +16,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "421f20a142";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9eea79e13f";</script>
+<script>
+// Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
+window.addEventListener('appinstalled', function () { window.__instal = null; });
+</script>
 
 <script>
 // chyba skriptu sa ukáže priamo na stránke (aby ju bolo vidieť aj v mobile a v rámci Google)
@@ -178,7 +183,10 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .foto{position:fixed;inset:0;z-index:75;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;padding:16px}
 .foto.on{display:flex}
 .foto img{max-width:100%;max-height:100%;border-radius:8px}
-.login{position:fixed;inset:0;z-index:80;background:var(--bg);display:none;align-items:center;justify-content:center;padding:16px}
+.login{position:fixed;inset:0;z-index:80;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;overflow-y:auto}
+.instal{width:100%;max-width:400px;display:grid;gap:10px;margin:0;border-color:var(--accent)}
+.instal ol{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.instal .navod{display:grid;gap:8px;font-size:14px}
 .login.on{display:flex}
 .login .card{width:100%;max-width:400px;display:grid;gap:12px;margin:0}
 .login h2{margin:0;font-size:20px}
@@ -260,6 +268,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
     <div class="err" id="lErr"></div>
     <button class="btn pri" type="submit" id="lBtn">Prihlásiť</button>
   </form>
+  <div id="lInstal" style="width:100%;max-width:400px"></div>
 </div>
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
@@ -377,6 +386,34 @@ const mesiacov = iso => { if (!iso) return null; const d = new Date(iso); if (is
 const vek = iso => { const m = mesiacov(iso); if (m == null) return ''; if (m < 1) { const d = Math.floor(m * 30.44); return d <= 0 ? 'dnes' : d === 1 ? 'včera' : 'pred ' + d + ' dňami'; } if (m < 24) return 'pred ' + Math.floor(m) + ' mes.'; return 'pred ' + Math.floor(m / 12) + ' r.'; };
 const noveId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const sk = (n, a, b, c) => n === 1 ? a : n >= 2 && n <= 4 ? b : c;
+/* PRIDAŤ NA PLOCHU (len samostatná appka z GitHubu) – Android Chrome vie nainštalovať jedným ťuknutím,
+   inde appka ukáže presný postup pre daný telefón / prehliadač */
+const jeAppka = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function instalKarta(){
+  if (!window.API_URL || jeAppka()) return '';
+  return `<div class="card instal"><div><b>📲 Pridajte si appku na plochu</b><div class="small muted">Potom sa otvára ako samostatná appka s ikonou Výdajníky – bez prehliadača.</div></div>
+    <button class="btn pri" type="button" data-act="instal">Pridať na plochu</button><div class="navod" hidden></div></div>`;
+}
+function instalNavod(){
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const adr = location.origin + location.pathname;
+  if (ios) {
+    if (/CriOS|FxiOS|EdgiOS|GSA\//.test(ua)) return `<p style="margin:0">Na iPhone to ide najistejšie zo <b>Safari</b>:</p><ol><li>Ťuknite <b>Skopírovať odkaz</b> nižšie.</li><li>Otvorte <b>Safari</b> a odkaz vložte do adresného riadku.</li><li>Dole ťuknite na <b>Zdieľať</b> (štvorček so šípkou) → <b>Pridať na plochu</b> → <b>Pridať</b>.</li></ol>`;
+    return `<ol><li>Dole (alebo hore) ťuknite na <b>Zdieľať</b> – štvorček so šípkou nahor.</li><li>Posuňte zoznam nižšie a vyberte <b>Pridať na plochu</b>.</li><li>Vpravo hore ťuknite <b>Pridať</b>.</li></ol>`;
+  }
+  if (/Android/.test(ua)) {
+    const wv = /; wv\)|FBAN|FBAV|Instagram|GSA\/|Line\//.test(ua);
+    const samsung = /SamsungBrowser/.test(ua);
+    const xiaomi = /Xiaomi|Redmi|POCO|; Mi |MIUI|HyperOS|M210|M200/i.test(ua);
+    const huawei = /HUAWEI|Honor|HONOR/.test(ua);
+    if (wv) return `<p style="margin:0">Odkaz je otvorený vnútri inej appky (mail, Messenger…), odtiaľ sa na plochu pridať nedá.</p><ol><li>Ťuknite <b>Skopírovať odkaz</b> nižšie.</li><li>Otvorte <b>Chrome</b> a odkaz vložte do adresného riadku.</li><li>V Chrome ťuknite tu na <b>Pridať na plochu</b> znova.</li></ol>`;
+    if (samsung) return `<ol><li>Dole ťuknite na <b>☰</b> (tri čiarky).</li><li><b>Pridať stránku do</b> → <b>Domovská obrazovka</b> → <b>Pridať</b>.</li></ol><p class="small muted" style="margin:0">Lepšie funguje v Chrome: skopírujte odkaz a otvorte ho v Chrome.</p>`;
+    return `<ol><li>Vpravo hore ťuknite na <b>⋮</b> (tri bodky).</li><li>Vyberte <b>Pridať na plochu</b> alebo <b>Inštalovať aplikáciu</b>.</li><li>Potvrďte <b>Inštalovať</b> / <b>Pridať</b> (ak sa ukáže ikonka, môžete ju aj pretiahnuť na plochu).</li></ol>
+      ${xiaomi || huawei ? `<div class="warnbox" style="margin:0">Na telefónoch ${xiaomi ? 'Xiaomi / Redmi / POCO' : 'Huawei / Honor'} treba Chromu povoliť ikony na ploche: <b>Nastavenia → Aplikácie → Chrome → Ďalšie povolenia → Odkazy na domovskej obrazovke → Povoliť</b>. Potom to skúste znova.</div>` : ''}
+      <p class="small muted" style="margin:0">Ak sa ikonka neobjavila na ploche, pozrite <b>zoznam všetkých aplikácií</b> (potiahnuť z plochy nahor) – appka „Výdajníky“ tam môže byť; podržaním ju presuniete na plochu.</p>`;
+  }
+  return `<p style="margin:0">V Chrome alebo Edge na počítači: v adresnom riadku vpravo kliknite na ikonku <b>Inštalovať</b> (monitor so šípkou).</p>`;
+}
 function toast(t, ms){ const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), ms || 2600); }
 function nacitajLS(k, def){ try { const v = JSON.parse(localStorage.getItem(k)); return v ?? def; } catch(e) { return def; } }
 let lsChyba = false;
@@ -575,7 +612,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('online', () => sync());
 
 /* ---------- prihlásenie ---------- */
-function ukazLogin(){ $('#lPin').value = ''; $('#lErr').textContent = ''; $('#login').classList.add('on'); }
+function ukazLogin(){ $('#lPin').value = ''; $('#lErr').textContent = ''; $('#lInstal').innerHTML = instalKarta(); $('#login').classList.add('on'); }
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const pin = $('#lPin').value.trim();
@@ -960,7 +997,7 @@ TABS.domov = {nazov:'Domov',
     const poradie = {sofer:['ulohy','vydaj','zvoz','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','vydajniky','hladaj','viac'],
       referentka:['prehlad','ulohy','vydajniky','miesta','servis','viac'], admin:['prehlad','ulohy','vydajniky','miesta','servis','viac']}[r] || ['hladaj'];
     return `<div class="hello"><h2>${esc(pozdrav)}, ${esc(String(C.meno || '').split(' ')[0])}</h2><div class="s">${esc(ROLY[r] || '')}${mojSklad() ? ' · ' + esc(nazovMiesta(mojSklad())) : ''} · ${esc(new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'numeric'}))}</div></div>
-      <div class="tiles">${poradie.map(k => T[k]).join('')}</div>
+      ${instalKarta()}<div class="tiles">${poradie.map(k => T[k]).join('')}</div>
       ${jeRef() ? '' : '<div class="group"><h2>Moje dnešné záznamy</h2></div><div id="dZaznamy"></div>'}`;
   },
   obnov(){ const z = $('#dZaznamy'); if (z) z.innerHTML = mojeZaznamy(); obnovOdznaky(); }
@@ -1714,6 +1751,21 @@ const ACT = {
   },
   srvZ(d){ otvorServis(d.id); SERVIS.zaznam = true; ACT.srvKod({k:d.k}); },
   srvDiel(d){ pridajDiel(d.k); },
+  instal(d, el){
+    const e = window.__instal;
+    if (e) {
+      e.prompt();
+      e.userChoice.then(r => { window.__instal = null; if (r && r.outcome === 'accepted') toast('Appka sa pridáva na plochu…', 3500); }).catch(() => {});
+      return;
+    }
+    const n = el.closest('.instal').querySelector('.navod');
+    n.innerHTML = instalNavod() + '<button class="btn small" type="button" data-act="instalOdkaz">Skopírovať odkaz</button>';
+    n.hidden = false;
+  },
+  instalOdkaz(){
+    const adr = location.origin + location.pathname;
+    (navigator.clipboard ? navigator.clipboard.writeText(adr) : Promise.reject()).then(() => toast('Odkaz skopírovaný'), () => prompt('Skopírujte odkaz:', adr));
+  },
   srvDielPridaj(){ const n = (SERVIS.dielNovy || '').trim(); if (!n) return toast('Napíšte názov súčiastky.'); SERVIS.dielNovy = ''; pridajDiel(n); },
   srvDielKs(d){ const x = SERVIS.dielyZoz[+d.i]; if (!x) return; x.ks = Math.max(1, x.ks + (+d.k)); TABS.servis.obnov(); },
   srvDielZmaz(d){ SERVIS.dielyZoz.splice(+d.i, 1); TABS.servis.obnov(); },
