@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "0c66888c0c";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "43c65ce101";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -354,6 +354,67 @@ const VYSLEDKY = {opraveny:'opravený', caka:'čaká na diel / servis', vyhovuje
 const DIELY_ZOZNAM = ['Kohútik studená', 'Kohútik teplá', 'Kohútik izbová', 'Termostat chladenia', 'Termostat ohrevu', 'Topné teleso',
   'Kompresor', 'Ventilátor', 'Chladiaca nádrž', 'Teplá nádrž', 'Ihla / sonda', 'Tesnenie', 'Hadička', 'Vypínač', 'Kontrolka / LED',
   'Napájací kábel', 'Odkvapkávacia miska', 'Doplnenie chladiva'];
+const KATALOG_VODAX = [  // kód, názov, skupina, priemerná cena €/ks – zo zoznamu VODAX (HK 2025) v inventúre
+  ["41", "Tubus na poháriky", "Poháriky a tubusy", 9.4853],
+  ["F338CO2", "CO2 - fľaša", "CO2", 82.6918],
+  ["ND89", "Narážací trn komplet strieborný/čierny/ biely", "Náhradné diely", 11.8321],
+  ["ND79", "Horná doska V66 / WS - biela / čierna", "Náhradné diely", 11.9643],
+  ["ND51", "Kohút modrý komplet strieborný", "Náhradné diely", 2.1933],
+  ["82PB", "Pohár automatový papierový biely", "Poháriky a tubusy", 0.0271],
+  ["ND107", "Odkvapkávacia miska HC 66L", "Náhradné diely", 6.9359],
+  ["ND74", "Ohrevný tank 2V208/15 nový s izoláciou", "Náhradné diely", 18.3],
+  ["ND102", "Redukčný ventil dvojbudíkový CO2", "CO2", 40.5],
+  ["ND104", "Držiak na tubus", "Náhradné diely", 2.1835],
+  ["82K", "Pohár automatový kónický", "Poháriky a tubusy", 0.0147],
+  ["ND48", "Kohút červený komplet", "Náhradné diely", 2.2328],
+  ["ND49", "Kohút modrý komplet", "Náhradné diely", 2.2424],
+  ["ND50", "Kohút červený komplet strieborný", "Náhradné diely", 2.2321],
+  ["ND78", "Narážací trn V208 biely / čierny", "Náhradné diely", 12.6],
+  ["ND90", "Vypúšťací ventil V208 / HC66L", "Náhradné diely", 1.9143],
+  ["ND94", "Filter hydro+ / KK", "Náhradné diely", 15.1875],
+  ["ND75", "Redukčný ventil jednobudíkový na CO2", "CO2", 42.425],
+  ["82", "Pohár automatový biely", "Poháriky a tubusy", 0.0088],
+  ["ND91", "Ozonizér s časovačom", "Náhradné diely", 105.5],
+  ["47A", "Kohút modrý, červený", "Náhradné diely", 0.98],
+  ["47", "Ručná pumpa na barel", "Náhradné diely", 9.0],
+  ["ND71", "Ohrevný tank 2V208/17 nový s izoláciou", "Náhradné diely", 16.85],
+  ["ND55", "Horná doska V208 biela/strieborná nový typ", "Náhradné diely", 13.35],
+  ["ND105", "Bočný kryt HC66 ľavý pravý/strieborný, nerez", "Náhradné diely", 19.5],
+  ["ND82", "Výpustný set 2V208", "Náhradné diely", 2.0],
+  ["ND87", "Plniaci tanier 2V208 strieborný - s trnom bez mriežky", "Náhradné diely", 9.5],
+  ["ND54", "Termostat poistný 97 °C", "Náhradné diely", 4.52],
+  ["ND81", "Spätná klapka v hadičke", "Náhradné diely", 4.0571],
+  ["ND103", "Podstavec HC66L biely/čierny", "Náhradné diely", 14.0],
+  ["ND73", "Čidlo ohrevu na digitál čierny kábel", "Náhradné diely", 9.0706],
+  ["FN338C", "CO2 - fľaša náplň", "CO2", 9.875],
+  ["ND77", "Plniaci tanier 2V208 biely - bez trnu, s mriežkou a bez trnu", "Náhradné diely", 6.36],
+  ["ND72", "Zátka zadného vypúšťacieho ventilu", "Náhradné diely", 1.5],
+  ["ND52", "Ohrevný tank 2V208/15 nový", "Náhradné diely", 16.75],
+  ["41 P", "Tubus na poháriky - použité", "Poháriky a tubusy", 16.0],
+  ["ND85", "Odkvapkávacia miska V208 biela/čierna", "Náhradné diely", 5.1917],
+  ["ND53", "Termostat pracovný 86 °C", "Náhradné diely", 4.4179],
+  ["47 E", "Elektrická pumpa na barel biela / čierna", "Náhradné diely", 20.7],
+  ["ND97", "Prípojka na vodovodný kohútik-prechodka", "Náhradné diely", 5.8],
+  ["82P", "Pohár automatový papierový", "Poháriky a tubusy", 0.0632],
+  ["ND108", "Spodný kryt HC66L strieborný / nerez", "Náhradné diely", 12.5],
+  ["ND76", "Hadička prívodná 6mm-POU", "Náhradné diely", 1.1996],
+  ["ND109", "Plavák pre HC 66 POU", "Náhradné diely", 15.0],
+  ["ND64", "Kohút žltý komplet", "Náhradné diely", 2.3],
+  ["ND100", "Tesnenie zátky silikónové", "Náhradné diely", 1.35],
+  ["ND63", "Límec nový typ široký", "Náhradné diely", 4.0],
+  ["ND106", "horný predný kryt HC66 čierny/biely", "Náhradné diely", 11.0],
+  ["ND95", "Water stop", "Náhradné diely", 17.0],
+  ["ND67", "Termostat pracovný 85°C", "Náhradné diely", 2.67],
+  ["ND69", "Tesnenie silikonové límca nový typ", "Náhradné diely", 3.127],
+  ["ND99", "Poistka na HC66", "Náhradné diely", 15.0],
+  ["ND88", "Tesnenie kohútika dvojité", "Náhradné diely", 2.077],
+  ["ND101", "Narážač (mriežka) biela, šedá", "Náhradné diely", 0.3],
+  ["ND60", "Panel predný V208S + V208 horná časť", "Náhradné diely", 8.12],
+  ["ND92", "Prívodný / Výpustný ventil", "Náhradné diely", 1.6],
+  ["ND56", "Panel predný V208", "Náhradné diely", 6.9],
+  ["ND66", "Plniaci tanier 2V208 strieborný nový typ", "Náhradné diely", 6.78],
+  ["ND68", "Odvzdušňovacia trubica komplet", "Náhradné diely", 3.3],
+  ["ND61", "Záslepka 3 kohútika strieborná, biela", "Náhradné diely", 0.5]];
 /** Druh zásahu (interná / chladiarenská oprava, elektrická revízia) je na začiatku popisu ako „[Interná] …“. */
 function rozdelPopis(x){ const p = String(x.popis || ''), m = /^\[([^\]]{1,30})\]\s*/.exec(p); return {druh: m ? m[1] : '', popis: m ? p.slice(m[0].length) : p}; }
 function nazovServisu(x){ const d = rozdelPopis(x).druh, z = TYPY_SERVISU[x.typ] || x.typ; return d ? z + ' – ' + d.toLowerCase() : z; }
@@ -1061,6 +1122,9 @@ TABS.diely = {nazov:'Súčiastky',
         <div class="sub">${[d.spotr ? 'spotreba 30 dní ' + d.spotr + ' ks' : '', d.min != null ? 'minimum ' + d.min + ' ks' : '', d.cena != null ? fmtE(d.cena) + '/ks' : ''].filter(Boolean).join(' · ') || 'bez minima a ceny'}</div></div>
         <b style="min-width:4em;text-align:right;font-size:17px;color:${d.malo ? 'var(--bad)' : d.ks <= 0 ? 'var(--warn)' : 'var(--ok)'}">${d.ks} ks</b></button>`).join('')}</div>`
       : `<div class="empty-state">${q ? 'Nič sa nenašlo.' : 'Katalóg súčiastok je prázdny.'}${!q && SRV.maDiely ? '<div style="margin-top:10px"><button class="btn pri" type="button" data-act="dielBezne">Pridať bežné súčiastky výdajníkov</button></div>' : ''}</div>`;
+    // katalóg zo zoznamu VODAXu (náhradné diely ND…, poháriky, tubusy, pumpy, CO2) – kým nie je celý v katalógu
+    const chyba = SRV.maDiely && !q ? KATALOG_VODAX.filter(([kod, n]) => !(V.dk || {})[n]).length : 0;
+    if (chyba && jeRef()) $('#dZoznam').insertAdjacentHTML('afterbegin', `<div class="card" style="margin-bottom:10px"><b>Katalóg VODAX</b><p class="note" style="margin:4px 0 8px">${chyba} položiek zo zoznamu VODAXu (náhradné diely, poháriky, tubusy, pumpy, CO2) ešte nie je v sklade súčiastok. Pridajú sa s kódom a cenou, počty sa zadajú pri prevzatí cez Inventúru.</p><button class="btn pri small" type="button" data-act="dielVodax">Pridať katalóg VODAX (${chyba})</button></div>`);
   }
 };
 document.addEventListener('input', e => { if (e.target.id === 'dHladaj') TABS.diely.obnov(); });
@@ -2069,6 +2133,11 @@ const ACT = {
   },
   dielSkryt(d){ if (!confirm('Odstrániť „' + d.k + '“ z katalógu? Pohyby ostanú v histórii.')) return; zmen({t:'diel', akcia:'karta', nazov:d.k, patch:{aktivny:'nie'}}); zavriModal(); },
   dielBezne(){ zmenViac(DIELY_ZOZNAM.filter(n => !(V.dk || {})[n]).map(n => ({t:'diel', akcia:'karta', nazov:n, patch:{aktivny:'áno'}}))); toast('Pridané bežné súčiastky – doplňte im ceny a minimá.', 3500); },
+  dielVodax(){
+    const nove = KATALOG_VODAX.filter(([kod, n]) => !(V.dk || {})[n]);
+    zmenViac(nove.map(([kod, n, sk, c]) => ({t:'diel', akcia:'karta', nazov:n, patch:{kod, cena:c === '' ? '' : String(c), pozn:sk + ' – katalóg VODAX', aktivny:'áno'}})));
+    toast(`Pridaných ${nove.length} položiek. Počty zadajte pri prevzatí (súčiastka → Inventúra).`, 4000);
+  },
   dielExport(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniDiely(); },
   navrhy(){ otvor(vNavrhy()); },
   navrhVsetky(d){ const st = vrch().st; st.n.forEach(x => { st.vyber[x.id] = !!d.k && !x.ma; }); renderModal(); },
