@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "5574f5718f";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "0c66888c0c";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -777,7 +777,9 @@ TABS.prehlad = {nazov:'Prehľad',
     <div class="card"><h3>Výkaz pre fakturáciu</h3>
       <div class="grid2"><div class="fld"><label for="vOd">Od</label><input type="date" id="vOd"></div><div class="fld"><label for="vDo">Do</label><input type="date" id="vDo"></div></div>
       <div class="actions two" style="margin-top:10px"><button class="btn pri" type="button" data-act="vykaz">Stiahnuť výkaz (Excel)</button><button class="btn" type="button" data-act="exportStav">Stav u zákazníkov (Excel)</button></div>
-      <p class="note">Výkaz: výdaje, zvozy, sanitácie a opravy za obdobie po zákazníkoch + všetky záznamy. Stav: čo je dnes u ktorého zákazníka (podklad k nájmu).</p></div>
+      <p class="note">Výkaz: výdaje, zvozy, sanitácie a opravy za obdobie po zákazníkoch + hárok „Pre STN“ (nájom, sanitácie, servis, doprava). Stav: čo je dnes u ktorého zákazníka (podklad k nájmu).</p>
+      <button class="btn" type="button" data-act="exportTypy" style="margin-top:6px">Typy výdajníkov – karty do systému (Excel)</button>
+      <p class="note">Počty podľa typu: koľko kusov je aktívnych a koľko už niekto v aplikácii fyzicky overil. Do systému ideme len s overenými.</p></div>
     <div class="card"><h3>Na doriešenie</h3><div id="pProblemy"></div></div>`,
   obnov(){
     const p = V.pocty, akt = Object.values(V.vyd).filter(v => v.stav !== 'vyradeny').length;
@@ -1232,6 +1234,7 @@ function protokolCanvas(miestoId, pohyby, podpis){
       tx.putImageData(d, 0, 0); x.drawImage(t, W - 90 - w, 40);
     }
     if (pod) { const s = Math.min(470 / pod.width, 150 / pod.height); x.drawImage(pod, 680, y + 15, pod.width * s, pod.height * s); }
+    txt('Objednávky a zákaznícka linka: +421 905 799 100 · objednavky@lucka.sk', 90, H - 84, 20, '600', '#555');
     txt('Vytvorené v aplikácii Výdajníky Lucka', 90, H - 50, 18, '400', '#999');
     return c;
   });
@@ -1893,7 +1896,9 @@ function vImport(){
           <table><tr><th>Výdajníkov</th><td class="r">${s.vyd}</td></tr><tr><th>z toho vyradených</th><td class="r">${s.st.vyradeny || 0}</td></tr>
           ${Object.keys(STAVY).filter(k => k !== 'vyradeny').map(k => `<tr><td>${esc(STAVY[k])}</td><td class="r">${s.st[k] || 0}</td></tr>`).join('')}
           <tr><th>Zákazníkov / odberných miest</th><td class="r">${s.zak}</td></tr><tr><th>Skladov</th><td class="r">${s.skl}</td></tr>
-          <tr><td>zákaznícke (vlastné) výdajníky</td><td class="r">${s.vlastne}</td></tr><tr><td>z toho predané (aktívne)</td><td class="r">${s.predane || 0}</td></tr>${s.dup ? `<tr><td>duplicitné výrobné čísla (zlúčené)</td><td class="r">${s.dup}</td></tr>` : ''}</table>
+          <tr><td>zákaznícke (vlastné) výdajníky</td><td class="r">${s.vlastne}</td></tr><tr><td>z toho predané (aktívne)</td><td class="r">${s.predane || 0}</td></tr>${s.dup ? `<tr><td>duplicitné výrobné čísla (zlúčené)</td><td class="r">${s.dup}</td></tr>` : ''}
+          ${s.novsie ? `<tr><td>v databáze je novší doklad – stav sa nemení</td><td class="r">${s.novsie}</td></tr>` : ''}</table>
+          ${s.novsie ? `<div class="note" style="margin:0">Zostava je pri ${s.novsie} kusoch staršia ako údaje v databáze. Pri nich sa doplnia len chýbajúce údaje, stav a miesto ostanú.</div>` : ''}
           <div class="fld"><label>Popis importu (napr. „stav k 13. 10. 2026“)</label><input type="text" ${fIn('popis', st)}></div>
           <button class="btn pri" type="button" data-act="importPotvrd">Nahrať do databázy</button><button class="btn" type="button" data-act="importVyber">Vybrať iný súbor</button>`; }
       if (st.faza === 'nahrava') return `<div class="empty-state">Nahrávam… ${esc(st.krok)} / ${esc(st.krokov)}<br>Nezatvárajte okno.</div>`;
@@ -1915,6 +1920,15 @@ function spinNaZaznamy(riadky){
   const jeSkladOM = n => /vodax/i.test(n);
   // „predaný / predaj“ v popise alebo poznámke = podľa VODAXu patrí zákazníkovi (nie „nepredaný“, „predný“)
   const PREDANY = /(^|[^a-záäčďéíĺľňóôŕšťúýž])preda(n|ň|j)/i;
+  const ZNAME = new Set(['VYROBNE_CISLO','OM_FIRMA_INT_KOD','OM_FIRMA_NAZOV','OM_FIRMA_ICO','OM_FIRMA_ADRESA','OM_FIRMA_PSC','OM_FIRMA_MESTO',
+    'FM_FIRMA_NAZOV','FM_FIRMA_ICO','FM_FIRMA_ADRESA','FM_FIRMA_PSC','FM_FIRMA_MESTO','FM_FIRMA_INT_KOD','FM_FAKTURACNE_MIESTO','OM_FAKTURACNE_MIESTO',
+    'NAZOV_VYDAJNIKA','DOKLAD_MNOZSTVO','DOKLAD_DATUM','DOKLAD_CISLO','DOKLAD_CENA','POSLEDNA_SANITACIA','POSEDNA_OPRAVA','POSLEDNA_OPRAVA','POSLEDNA_REVIZIA',
+    'VLASTNIK_NAZOV_FIRMY','POPIS','POZNAMKA','NAZOV_PRODUKTU','DATUM_ZARADENIA','DATUM_VYRADENIA','NAVRH_NA_VYRADENIE','CENNIK_40_CENA','NAZOV_TYPU',
+    'KOD_PRODUKTU','OBSTARAVACIA_CENA']);
+  const navyse = Object.keys(ix).filter(k => k && !ZNAME.has(k));
+  // kontakty odberného miesta, ak ich Asseco do exportu doplní (názvy stĺpcov ešte nepoznáme)
+  const kol = re => navyse.find(k => /^OM_|ODBER/i.test(k) && re.test(k)) || navyse.find(k => re.test(k) && !/^FM_/i.test(k));
+  const kKontakt = kol(/KONTAKT|OSOBA/i), kTel = kol(/TELEF|MOBIL/i), kMail = kol(/MAIL/i);
   for (const r of riadky.slice(1)) {
     const vc = s(r, 'VYROBNE_CISLO'); if (!vc) continue;
     const om = s(r, 'OM_FIRMA_INT_KOD'), omN = s(r, 'OM_FIRMA_NAZOV');
@@ -1922,6 +1936,7 @@ function spinNaZaznamy(riadky){
       psc:s(r, 'OM_FIRMA_PSC'), mesto:s(r, 'OM_FIRMA_MESTO'), fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO'),
       faktAdresa:[s(r, 'FM_FIRMA_ADRESA'), [s(r, 'FM_FIRMA_PSC'), s(r, 'FM_FIRMA_MESTO')].filter(Boolean).join(' ')].filter(Boolean).join(', ')};
     else if (om && !miesta[om].fakt && s(r, 'FM_FIRMA_NAZOV')) Object.assign(miesta[om], {fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO')});
+    if (om) for (const [pole, k] of [['kontakt', kKontakt], ['telefon', kTel], ['email', kMail]]) if (k && !miesta[om][pole] && s(r, k)) miesta[om][pole] = s(r, k);
     const nazov = s(r, 'NAZOV_VYDAJNIKA'), mn = num(g(r, 'DOKLAD_MNOZSTVO')), dokl = d(r, 'DOKLAD_DATUM'), san = d(r, 'POSLEDNA_SANITACIA');
     const vlastnikTxt = s(r, 'VLASTNIK_NAZOV_FIRMY').replace(/^Firma\s*:\s*/i, '').replace(/,?\s*IČO:.*$/i, '').trim();
     const predany = PREDANY.test(s(r, 'POPIS') + ' ' + s(r, 'POZNAMKA'));
@@ -1947,6 +1962,8 @@ function spinNaZaznamy(riadky){
     pridaj('Poznámka', s(r, 'POZNAMKA').replace(/^[Š♦\s]+/, '').replace(/\r+\n?/g, '\n').trim());
     pridaj('Kód produktu', s(r, 'KOD_PRODUKTU'));
     pridaj('Vlastník vo SPIN', s(r, 'VLASTNIK_NAZOV_FIRMY'));
+    // nový export z Asseca (špecifikácia 10. 10.) môže mať ďalšie stĺpce – nič sa nestratí, uložia sa do karty
+    for (const k of navyse) pridaj(k.replace(/_/g, ' '), s(r, k).replace(/\r+\n?/g, '\n'));
     const id = normVc(vc);
     if (vyd[id]) suhrn.dup++;
     vyd[id] = {vc:id, ev:(vc.match(/(\d{1,5}\/\d{2,4})\s*$/) || [])[1] || '', nazov, model:nazov.replace(/^V[ýy]dajn[íi]k\s*/i, ''), rok:rokM ? rokM[1] : zar.slice(0, 4),
@@ -1958,6 +1975,21 @@ function spinNaZaznamy(riadky){
   for (const x of v) { suhrn.st[x.stav] = (suhrn.st[x.stav] || 0) + 1; if (x.vlastnik) suhrn.vlastne++; if (x.predany && x.stav !== 'vyradeny') suhrn.predane++; delete x.predany; }
   Object.assign(suhrn, {vyd:v.length, zak:m.filter(x => x.typ === 'zakaznik').length, skl:m.filter(x => x.typ === 'sklad').length});
   return {vydajniky:v, miesta:m, suhrn};
+}
+
+/** Staršia zostava (napr. Asseco k 30. 9. po importe k 13. 10.) nesmie vrátiť novší stav. Pri kusoch, ktoré majú v databáze
+ *  novší doklad, sa pošle ich súčasný stav a miesto (server ich teda nezmení) a prázdne polia zo zostavy nezmažú vyplnené. */
+function chranNovsie(data){
+  let n = 0;
+  for (const x of data.vydajniky) {
+    const st = V && V.vyd[x.vc];
+    if (!st || st.kto !== 'SPIN import' || !st.odKedy || (x.odKedy && x.odKedy >= st.odKedy)) continue;
+    for (const k of ['stav','miesto','odKedy','navrh','pozn']) x[k] = st[k] || '';
+    for (const k of ['ev','model','nazov','rok','vlastnik','obstCena','zaradenie','vyradenie']) if (!x[k] && st[k]) x[k] = st[k];
+    if (st.spin) x.spin = st.spin;
+    n++;
+  }
+  data.suhrn.novsie = n;
 }
 
 /* ---------- akcie (klik na data-act) ---------- */
@@ -2224,7 +2256,8 @@ const ACT = {
     try { const r = await api('vykaz', C.pin, od, po); stiahniVykaz(r, od, po); } catch(e) { toast(jeSiet(e) ? 'Výkaz sa dá stiahnuť len so signálom.' : e.message, 3500); }
   },
   exportStav(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniStav(); },
-  exportVyd(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniVydajniky(TABS.vydajniky.filtrovane()); }
+  exportVyd(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniVydajniky(TABS.vydajniky.filtrovane()); },
+  exportTypy(){ if (!window.XLSX) return toast('Knižnica pre Excel sa ešte načítava.'); stiahniTypy(); }
 };
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
@@ -2377,6 +2410,7 @@ $('#importVstup').addEventListener('change', async e => {
     if (!meno) throw new Error('V súbore nie je hárok so stĺpcom VYROBNE_CISLO.');
     const riadky = XLSX.utils.sheet_to_json(wb.Sheets[meno], {header:1, defval:'', raw:true});
     const data = spinNaZaznamy(riadky);
+    chranNovsie(data);
     Object.assign(v.st, {faza:'nahlad', subor:f.name, data, suhrn:data.suhrn, chyba:'', popis:'stav k ' + new Date(f.lastModified || Date.now()).toLocaleDateString('sk-SK')});
   } catch(err) { v.st.faza = 'vyber'; v.st.chyba = err.message; }
   renderModal();
@@ -2409,16 +2443,56 @@ function stiahniStav(){
     [40,18,11,40,22,9,28,18,13,13]);
   XLSX.writeFile(wb, `Vydajniky_u_zakaznikov_${dnes()}.xlsx`);
 }
+/* Karty typov do systému (porada 15. 10. 2026): v systéme budú len karty podľa typov, pohyby po kusoch ostávajú v appke.
+   Do systému berieme len to, čo fyzicky zinventarizujeme = kus, ktorého sa v appke niekto dotkol (nie je už len „SPIN import“). */
+function stiahniTypy(){
+  const wb = XLSX.utils.book_new(), t = {};
+  const overeny = v => v.kto && v.kto !== 'SPIN import';
+  for (const v of Object.values(V.vyd)) {
+    if (!nasVlastnik(v)) continue;
+    const k = modelKluc(v.model), x = t[k] = t[k] || {akt:0, zak:0, skl:0, over:0, overZak:0, overSkl:0, vyr:0, roky:{}};
+    if (v.stav === 'vyradeny') { x.vyr++; continue; }
+    const uZak = v.stav === 'zakaznik';
+    x.akt++; if (uZak) x.zak++; else x.skl++;
+    if (overeny(v)) { x.over++; if (uZak) x.overZak++; else x.overSkl++; }
+    const r = v.rok || '—'; x.roky[r] = (x.roky[r] || 0) + 1;
+  }
+  const typy = Object.entries(t).filter(([, x]) => x.akt).sort((a, b) => b[1].akt - a[1].akt);
+  list(wb, 'Typy – karty', ['Typ (karta v systéme)','Aktívne spolu','u zákazníkov','na skladoch / inde','Fyzicky overené','z toho u zákazníkov','z toho na skladoch','Ešte neoverené','Vyradené (len info)'],
+    typy.map(([k, x]) => [k, x.akt, x.zak, x.skl, x.over, x.overZak, x.overSkl, x.akt - x.over, x.vyr]).concat([['SPOLU',
+      ...['akt','zak','skl','over','overZak','overSkl'].map(p => typy.reduce((a, [, x]) => a + x[p], 0)), typy.reduce((a, [, x]) => a + x.akt - x.over, 0), typy.reduce((a, [, x]) => a + x.vyr, 0)]]),
+    [34,12,12,14,13,14,14,12,14]);
+  list(wb, 'Typy podľa roku', ['Typ','Rok výroby / zaradenia','Aktívne kusy'],
+    typy.flatMap(([k, x]) => Object.entries(x.roky).sort().map(([r, n]) => [k, r, n])), [34,20,12]);
+  list(wb, 'Overené kusy', ['Typ','Výrobné číslo','Ev. č.','Model','Stav','Miesto','Kto naposledy','Kedy'],
+    Object.values(V.vyd).filter(v => nasVlastnik(v) && v.stav !== 'vyradeny' && overeny(v)).sort((a, b) => modelKluc(a.model).localeCompare(modelKluc(b.model)))
+      .map(v => [modelKluc(v.model), v.vc, v.ev, v.model, STAVY[v.stav] || v.stav, nazovMiesta(v.miesto), v.kto, d10(v.cas)]), [30,22,9,30,18,34,18,12]);
+  XLSX.writeFile(wb, `Typy_vydajnikov_karty_${dnes()}.xlsx`);
+}
 function stiahniVykaz(r, od, po){
   const wb = XLSX.utils.book_new(), z = {};
   const mm = id => miesto(id) || {nazov:id || '—'};
   const zak = id => (z[id] = z[id] || {vydaj:0, prijem:0, sanit:0, oprava:0, porucha:0});
   for (const p of r.pohyby) { if (p.typ === 'vydaj') zak(p.kam).vydaj++; if (p.typ === 'prijem') zak(p.z).prijem++; }
   for (const s of r.servis) { if (!jeSklad(s.miesto) && s.miesto) { if (s.typ === 'sanitacia') zak(s.miesto).sanit++; if (s.typ === 'oprava') zak(s.miesto).oprava++; if (s.typ === 'porucha') zak(s.miesto).porucha++; } }
-  list(wb, 'Po zákazníkoch', ['Zákazník','Mesto','IČO','Fakturačná firma','IČO fakt.','Výdaje','Zvozy','Sanitácie u zák.','Opravy u zák.','Poruchy','Teraz u zákazníka'],
-    Object.entries(z).filter(([id]) => id && !jeSklad(id)).sort((a, b) => mm(a[0]).nazov.localeCompare(mm(b[0]).nazov, 'sk')).map(([id, x]) => { const m = mm(id);
-      return [m.nazov, m.mesto, m.ico, m.fakt, m.faktIco, x.vydaj, x.prijem, x.sanit, x.oprava, x.porucha, (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik').length]; }),
-    [40,18,11,40,11,8,8,10,10,8,10]);
+  // nájom = naše výdajníky u zákazníka (aj tí, kde sa v období nič nedialo)
+  for (const v of Object.values(V.vyd)) if (v.stav === 'zakaznik' && v.miesto) zak(v.miesto);
+  const najom = id => (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik' && nasVlastnik(v)).length;
+  const riadkyZak = Object.entries(z).filter(([id]) => id && !jeSklad(id)).sort((a, b) => mm(a[0]).nazov.localeCompare(mm(b[0]).nazov, 'sk'));
+  list(wb, 'Po zákazníkoch', ['Zákazník','Mesto','IČO','Fakturačná firma','IČO fakt.','Výdaje','Zvozy','Sanitácie u zák.','Opravy u zák.','Poruchy','Teraz u zákazníka','z toho naše (nájom)'],
+    riadkyZak.map(([id, x]) => { const m = mm(id);
+      return [m.nazov, m.mesto, m.ico, m.fakt, m.faktIco, x.vydaj, x.prijem, x.sanit, x.oprava, x.porucha, (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik').length, najom(id)]; }),
+    [40,18,11,40,11,8,8,10,10,8,10,12]);
+  // dohoda z porady 15. 10. 2026: výdajníky ostávajú majetkom BUDIŠ, zákazníkom fakturuje STN,
+  // BUDIŠ fakturuje STN mesačne nájom, sanitácie, servis a dopravu
+  const sum = k => riadkyZak.reduce((a, [, x]) => a + x[k], 0);
+  list(wb, 'Pre STN (fakturácia)', ['Položka','Množstvo','Poznámka'], [
+    ['Nájom – naše výdajníky u zákazníkov', riadkyZak.reduce((a, [id]) => a + najom(id), 0), 'stav ku dňu stiahnutia výkazu, bez zákazníckych a predaných'],
+    ['Zákazníkov s nájmom', riadkyZak.filter(([id]) => najom(id)).length, ''],
+    ['Sanitácie u zákazníkov', sum('sanit'), `${fmtD(od)} – ${fmtD(po)}`],
+    ['Opravy u zákazníkov', sum('oprava'), `${fmtD(od)} – ${fmtD(po)}`],
+    ['Výjazdy – výdaje', sum('vydaj'), 'doprava'],
+    ['Výjazdy – zvozy', sum('prijem'), 'doprava']], [40,12,50]);
   list(wb, 'Pohyby', ['Dátum a čas','Druh','Výrobné číslo','Model','Odkiaľ','Kam','Dodací list','Kto','Poznámka','Podpísal'],
     r.pohyby.map(p => [fmtCas(p.cas), TYPY_POHYBU[p.typ] || p.typ, p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, mm(p.kam).nazov, p.dl, p.kto, p.pozn, String(p.podpis || '').split('|')[0]]), [16,22,22,26,34,34,12,18,30,20]);
   list(wb, 'Servis', ['Dátum a čas','Druh','Výsledok','Výrobné číslo','Model','Kde','Poznámka','Vymenené súčiastky','Kto'],
