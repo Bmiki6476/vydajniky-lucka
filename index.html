@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fa5f238c35";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "de9ec012b5";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1988,7 +1988,9 @@ function spinNaZaznamy(riadky){
     'FM_FIRMA_NAZOV','FM_FIRMA_ICO','FM_FIRMA_ADRESA','FM_FIRMA_PSC','FM_FIRMA_MESTO','FM_FIRMA_INT_KOD','FM_FAKTURACNE_MIESTO','OM_FAKTURACNE_MIESTO',
     'NAZOV_VYDAJNIKA','DOKLAD_MNOZSTVO','DOKLAD_DATUM','DOKLAD_CISLO','DOKLAD_CENA','POSLEDNA_SANITACIA','POSEDNA_OPRAVA','POSLEDNA_OPRAVA','POSLEDNA_REVIZIA',
     'VLASTNIK_NAZOV_FIRMY','POPIS','POZNAMKA','NAZOV_PRODUKTU','DATUM_ZARADENIA','DATUM_VYRADENIA','NAVRH_NA_VYRADENIE','CENNIK_40_CENA','NAZOV_TYPU',
-    'KOD_PRODUKTU','OBSTARAVACIA_CENA']);
+    'KOD_PRODUKTU','OBSTARAVACIA_CENA',
+    // technické stĺpce exportu (typ = Typ, obal = kód produktu, saldo a riadok DL sa do karty nedávajú)
+    'OBALOVE_SALDO','DOKLAD_POPIS','TYP','VLASTNIK_INT_KOD','KOD_OBALU','SUHLAS_S_VYRADENIM']);
   const navyse = Object.keys(ix).filter(k => k && !ZNAME.has(k));
   // kontakty odberného miesta, ak ich Asseco do exportu doplní (názvy stĺpcov ešte nepoznáme)
   // export k 28. 10.: OM_KONTAKT_WORK = telefón, OM_KONTAKT_EMAIL = e-maily (viac v bunke, oddelené _x000D_ a novým riadkom)
@@ -2029,7 +2031,8 @@ function spinNaZaznamy(riadky){
     pridaj('Kód produktu', s(r, 'KOD_PRODUKTU'));
     pridaj('Vlastník vo SPIN', s(r, 'VLASTNIK_NAZOV_FIRMY'));
     // nový export z Asseca (špecifikácia 10. 10.) môže mať ďalšie stĺpce – nič sa nestratí, uložia sa do karty
-    for (const k of navyse) pridaj(k.replace(/_/g, ' '), /KONTAKT|MAIL|TELEF/i.test(k) ? cistiKontakt(s(r, k)) : s(r, k).replace(/\r+\n?/g, '\n'));
+    // kontakty idú do miesta (zákazníka), nie do karty výdajníka
+    for (const k of navyse) if (!/KONTAKT|MAIL|TELEF/i.test(k)) pridaj(k.replace(/_/g, ' '), s(r, k).replace(/\r+\n?/g, '\n'));
     const id = normVc(vc);
     if (vyd[id]) suhrn.dup++;
     vyd[id] = {vc:id, ev:(vc.match(/(\d{1,5}\/\d{2,4})\s*$/) || [])[1] || '', nazov, model:nazov.replace(/^V[ýy]dajn[íi]k\s*/i, ''), rok:rokM ? rokM[1] : zar.slice(0, 4),
