@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "43c65ce101";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fa5f238c35";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1991,8 +1991,10 @@ function spinNaZaznamy(riadky){
     'KOD_PRODUKTU','OBSTARAVACIA_CENA']);
   const navyse = Object.keys(ix).filter(k => k && !ZNAME.has(k));
   // kontakty odberného miesta, ak ich Asseco do exportu doplní (názvy stĺpcov ešte nepoznáme)
-  const kol = re => navyse.find(k => /^OM_|ODBER/i.test(k) && re.test(k)) || navyse.find(k => re.test(k) && !/^FM_/i.test(k));
-  const kKontakt = kol(/KONTAKT|OSOBA/i), kTel = kol(/TELEF|MOBIL/i), kMail = kol(/MAIL/i);
+  // export k 28. 10.: OM_KONTAKT_WORK = telefón, OM_KONTAKT_EMAIL = e-maily (viac v bunke, oddelené _x000D_ a novým riadkom)
+  const kol = (re, nie) => { const ok = k => re.test(k) && !(nie && nie.test(k)); return navyse.find(k => /^OM_|ODBER/i.test(k) && ok(k)) || navyse.find(k => ok(k) && !/^FM_/i.test(k)); };
+  const kKontakt = kol(/KONTAKT|OSOBA/i, /WORK|MAIL|TELEF|MOBIL/i), kTel = kol(/TELEF|MOBIL|WORK/i), kMail = kol(/MAIL/i);
+  const cistiKontakt = t => [...new Set(String(t).replace(/_x000D_/gi, '').split(/[\r\n;,]+/).map(x => x.trim().replace(/\s*@\s*/, '@')).filter(Boolean))].join(', ');
   for (const r of riadky.slice(1)) {
     const vc = s(r, 'VYROBNE_CISLO'); if (!vc) continue;
     const om = s(r, 'OM_FIRMA_INT_KOD'), omN = s(r, 'OM_FIRMA_NAZOV');
@@ -2000,7 +2002,7 @@ function spinNaZaznamy(riadky){
       psc:s(r, 'OM_FIRMA_PSC'), mesto:s(r, 'OM_FIRMA_MESTO'), fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO'),
       faktAdresa:[s(r, 'FM_FIRMA_ADRESA'), [s(r, 'FM_FIRMA_PSC'), s(r, 'FM_FIRMA_MESTO')].filter(Boolean).join(' ')].filter(Boolean).join(', ')};
     else if (om && !miesta[om].fakt && s(r, 'FM_FIRMA_NAZOV')) Object.assign(miesta[om], {fakt:s(r, 'FM_FIRMA_NAZOV'), faktIco:s(r, 'FM_FIRMA_ICO')});
-    if (om) for (const [pole, k] of [['kontakt', kKontakt], ['telefon', kTel], ['email', kMail]]) if (k && !miesta[om][pole] && s(r, k)) miesta[om][pole] = s(r, k);
+    if (om) for (const [pole, k] of [['kontakt', kKontakt], ['telefon', kTel], ['email', kMail]]) if (k && !miesta[om][pole] && cistiKontakt(s(r, k))) miesta[om][pole] = cistiKontakt(s(r, k));
     const nazov = s(r, 'NAZOV_VYDAJNIKA'), mn = num(g(r, 'DOKLAD_MNOZSTVO')), dokl = d(r, 'DOKLAD_DATUM'), san = d(r, 'POSLEDNA_SANITACIA');
     const vlastnikTxt = s(r, 'VLASTNIK_NAZOV_FIRMY').replace(/^Firma\s*:\s*/i, '').replace(/,?\s*IČO:.*$/i, '').trim();
     const predany = PREDANY.test(s(r, 'POPIS') + ' ' + s(r, 'POZNAMKA'));
@@ -2027,7 +2029,7 @@ function spinNaZaznamy(riadky){
     pridaj('Kód produktu', s(r, 'KOD_PRODUKTU'));
     pridaj('Vlastník vo SPIN', s(r, 'VLASTNIK_NAZOV_FIRMY'));
     // nový export z Asseca (špecifikácia 10. 10.) môže mať ďalšie stĺpce – nič sa nestratí, uložia sa do karty
-    for (const k of navyse) pridaj(k.replace(/_/g, ' '), s(r, k).replace(/\r+\n?/g, '\n'));
+    for (const k of navyse) pridaj(k.replace(/_/g, ' '), /KONTAKT|MAIL|TELEF/i.test(k) ? cistiKontakt(s(r, k)) : s(r, k).replace(/\r+\n?/g, '\n'));
     const id = normVc(vc);
     if (vyd[id]) suhrn.dup++;
     vyd[id] = {vc:id, ev:(vc.match(/(\d{1,5}\/\d{2,4})\s*$/) || [])[1] || '', nazov, model:nazov.replace(/^V[ýy]dajn[íi]k\s*/i, ''), rok:rokM ? rokM[1] : zar.slice(0, 4),
