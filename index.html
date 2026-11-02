@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "d3a73b9043";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "870d962471";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -893,9 +893,7 @@ TABS.prehlad = {nazov:'Prehľad',
     if (!$('#vOd').value) { const d = new Date(); const od = new Date(d.getFullYear(), d.getMonth() - 1, 1), po = new Date(d.getFullYear(), d.getMonth(), 0); $('#vOd').value = denIso(od); $('#vDo').value = denIso(po); }
     const nez = (V.poMieste[NEZ] || []).length, navrhZak = Object.values(V.vyd).filter(v => v.navrh && v.stav === 'zakaznik').length;
     const porucha = otvoreneUlohy().filter(u => u.typ === 'porucha').length;
-    const nenaj = nenajdenePriKontrole().length;
     $('#pProblemy').innerHTML = `<div class="list">
-      ${nenaj ? `<button class="item" type="button" data-act="nenajdene"><div class="main"><div class="name">Nenájdené pri kontrole polohy</div><div class="sub">Šofér alebo sanitácia ich na mieste nenašli – zistiť, kde sú.</div></div><div class="qty"><div class="n">${nenaj}</div>ks</div></button>` : ''}
       ${nez ? `<button class="item" type="button" data-act="miesto" data-id="${NEZ}"><div class="main"><div class="name">Vrátené – sklad nezistený</div><div class="sub">Vo SPIN je posledný pohyb vrátenie. Sú na Lúke alebo inom sklade VODAXu – pri inventúre naskenovať a zapísať sklad.</div></div><div class="qty"><div class="n">${nez}</div>ks</div></button>` : ''}
       ${p.nezname ? `<button class="item" type="button" data-act="filtrStav" data-stav="nezname"><div class="main"><div class="name">Nezistené</div><div class="sub">Výdajníky bez dokladu (staré nahrávanie) – môžu byť u zákazníkov.</div></div><div class="qty"><div class="n">${p.nezname}</div>ks</div></button>` : ''}
       ${navrhZak ? `<button class="item" type="button" data-act="filtrNavrh"><div class="main"><div class="name">Návrh na vyradenie, ale u zákazníka</div><div class="sub">Poznámka zo SPIN alebo z appky – pri najbližšej návšteve skontrolovať.</div></div><div class="qty"><div class="n">${navrhZak}</div>ks</div></button>` : ''}
@@ -1089,7 +1087,7 @@ TABS.domov = {nazov:'Domov',
       vydaj: tile('vydaj', 'Výdaj zákazníkovi', 'vybrať zákazníka a skenovať', 'data-act="rychly" data-typ="vydaj"'),
       zvoz: tile('zvoz', r === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', 'skenovať prevzaté výdajníky', 'data-act="rychly" data-typ="prijem"'),
       presun: tile('presun', 'Presun výdajníka', 'skenovať alebo číslo + kam', 'data-act="presun"'),
-      kontrola: tile('kontrola', 'Kontrola polohy', 'je tam, čo má byť?', 'data-act="kontrola"'),
+      kontrola: tile('kontrola', 'Kontrola polohy', 'skenovať a potvrdiť polohu', 'data-act="kontrola"'),
       diely: tile('diely', 'Súčiastky', SRV.maDiely ? (diellMalo() ? diellMalo() + ' dochádza' : 'sklad dielov') : 'sklad dielov', 'data-act="tab" data-tab="diely"'),
       servis: tile('servis', 'Servis', 'sanitácia, oprava, revízia', 'data-act="tab" data-tab="servis"'),
       sanitacia: tile('sanitacia', 'Sanitácia', caka + ' čaká na sanitáciu', 'data-act="tab" data-tab="sanitacia"'),
@@ -1570,70 +1568,42 @@ function pohybPresun(st, text){
   return {ok:true, msg};
 }
 
-/* KONTROLA POLOHY: na mieste naskenovať všetko, čo tam naozaj je → sedí / chýba / navyše.
-   Zapíše sa ako pohyb „kontrola“ – stav ani miesto sa nemenia (to len tlačidlom „Je tu – zapísať sem“). */
+/* KONTROLA POLOHY: naskenovať alebo napísať číslo → appka ukáže polohu z evidencie → potvrdiť alebo zmeniť na inú.
+   Potvrdenie je pohyb „kontrola“ (stav ani miesto sa nemenia), zmena ide ako presun alebo výdaj cez pohybPresun. */
 function vKontrola(){
-  return {ziva:true, st:{miesto:'', vc:'', najdene:[], navyse:[], nezname:[], gps:''},
-    hlavicka: st => ({nazov:'Kontrola polohy', sub: st.miesto ? esc(nazovMiesta(st.miesto)) : 'vyberte zákazníka alebo sklad'}),
+  return {ziva:true, st:{id:'', vc:'', kam:'', meni:false, pozn:'kontrola polohy', zapisane:[], gps:''},
+    hlavicka: st => ({nazov:'Kontrola polohy', sub: st.id ? `<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span>` : 'naskenujte alebo napíšte číslo'}),
     telo(st){
-      if (!st.miesto) return `<p class="note" style="margin:0">Na mieste naskenujete (alebo napíšete) všetky výdajníky, ktoré tam naozaj sú. Appka ukáže, čo sedí s evidenciou, čo chýba a čo je navyše.</p>${kamVyber(st, 'miesto', 'Kde ste')}`;
-      const evid = V.poMieste[st.miesto] || [], naj = new Set(st.najdene);
-      const sedi = evid.filter(v => naj.has(v.id)), chyba = evid.filter(v => !naj.has(v.id)), navyse = st.navyse.map(id => V.vyd[id]).filter(Boolean);
-      const riadok = (v, extra) => `<div class="hrow"><div class="t"><span class="mono">${esc(v.vc)}</span> · ${esc(v.model || '')}</div>${extra ? `<div class="m">${extra}</div>` : ''}</div>`;
-      return `${kamVyber(st, 'miesto', 'Kde ste')}
-        <div class="note"><b>V evidencii tu: ${evid.length} ks</b> · ✅ sedí ${sedi.length} · ❌ chýba ${chyba.length} · ⚠️ navyše ${navyse.length + st.nezname.length}</div>
-        <button class="btn pri big" type="button" data-act="kontrolaSken">${svg('qr')}Skenovať výdajníky</button>
-        <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="kontrolaRucne">Zapísať</button></div>
-        ${navyse.length ? `<div><b>⚠️ Navyše – v evidencii sú inde (${navyse.length})</b><div class="rychly-list" style="margin-top:8px">${navyse.map(v => `<div class="hrow"><div class="t"><span class="mono">${esc(v.vc)}</span> · ${esc(v.model || '')}</div>
-            <div class="m">v evidencii: ${v.stav === 'vyradeny' ? '<b>VYRADENÝ</b> – dajte vedieť referentke' : esc(STAVY[v.stav] || v.stav) + ' · ' + esc(nazovMiesta(v.miesto))}</div>
-            ${v.stav !== 'vyradeny' ? `<button class="btn small" type="button" data-act="kontrolaSem" data-id="${esc(v.id)}" style="margin-top:6px">Je tu – zapísať sem</button>` : ''}</div>`).join('')}</div></div>` : ''}
-        ${st.nezname.length ? `<div><b>⚠️ Nie sú v evidencii (${st.nezname.length})</b><div class="rychly-list" style="margin-top:8px">${st.nezname.map(x => `<div class="hrow"><div class="t mono">${esc(x)}</div></div>`).join('')}</div><p class="note" style="margin:4px 0 0">Zapíšu sa do poznámky kontroly – referentka ich doplní.</p></div>` : ''}
-        ${chyba.length ? `<details ${sedi.length || navyse.length ? 'open' : ''}><summary><b>❌ Chýba – v evidencii tu, ale nenaskenované (${chyba.length})</b></summary><div class="rychly-list" style="margin-top:8px">${chyba.map(v => riadok(v, esc(STAVY[v.stav] || v.stav) + (v.odKedy ? ' · od ' + esc(fmtD(v.odKedy)) : ''))).join('')}</div></details>` : ''}
-        ${sedi.length ? `<details><summary><b>✅ Sedí (${sedi.length})</b></summary><div class="rychly-list" style="margin-top:8px">${sedi.map(v => riadok(v)).join('')}</div></details>` : ''}
-        <button class="btn ok" type="button" data-act="kontrolaUloz">Ukončiť kontrolu a uložiť</button>
-        <p class="note" style="margin:0">Uloží sa, čo sedí aj čo chýba – referentka to uvidí v Prehľade (Na doriešenie). ${gpsNota(st)}</p>`;
+      const v = V.vyd[st.id];
+      const hotove = st.zapisane.length ? `<div><b>Skontrolované teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : '';
+      if (!v) return `<button class="btn pri big" type="button" data-act="kontrolaSken">${svg('qr')}Skenovať výdajník</button>
+        <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="kontrolaRucne">Zobraziť</button></div>
+        ${hotove}
+        <p class="note" style="margin:0">Appka ukáže, kde výdajník podľa evidencie je. Potvrdíte to, alebo zmeníte polohu na inú. ${gpsNota(st)}</p>`;
+      const m = miesto(v.miesto), neurcite = !m || v.miesto === NEZ || v.miesto === NOVE, vyr = v.stav === 'vyradeny';
+      const adresa = m ? (jeSklad(m.id) ? 'sklad' : [m.adresa, m.mesto].filter(Boolean).join(', ')) : '';
+      return `<div class="card" style="margin:0"><div class="small muted">${esc(v.model || '')} ${pill(v.stav)}</div>
+          <div class="small muted" style="margin-top:10px">Poloha podľa evidencie</div>
+          <div style="font-size:1.25em;font-weight:700;margin-top:2px">${esc(m ? m.nazov : 'Poloha nie je známa')}</div>
+          ${adresa ? `<div class="small muted">${esc(adresa)}</div>` : ''}${v.odKedy ? `<div class="small muted">od ${esc(fmtD(v.odKedy))}</div>` : ''}</div>
+        ${vyr ? '<div class="warnbox">Výdajník je VYRADENÝ – polohu nemeňte a dajte vedieť referentke.</div>'
+          : st.meni ? `${kamVyber(st, 'kam', 'Nová poloha')}
+            <button class="btn ok big" type="button" data-act="kontrolaZmen" ${st.kam && st.kam !== v.miesto ? '' : 'disabled'}>Uložiť novú polohu</button>`
+          : `${neurcite ? '' : '<button class="btn ok big" type="button" data-act="kontrolaOk">Áno, je tu – potvrdiť</button>'}
+            <button class="btn ${neurcite ? 'pri big' : ''}" type="button" data-act="kontrolaMeni">${neurcite ? 'Zadať polohu' : 'Nie, zmeniť polohu'}</button>`}
+        <button class="btn" type="button" data-act="kontrolaIny">${st.meni ? 'Zrušiť' : 'Iný výdajník'}</button>
+        ${hotove}
+        <p class="note" style="margin:0">${gpsNota(st)}</p>`;
     }
   };
 }
-function kontrolaKus(st, text){
-  const r = najdiVyd(text);
-  if (!r.length) {
-    const t = String(text || '').trim();
-    if (t && !st.nezname.includes(t)) st.nezname.push(t);
-    vibr(); return {ok:true, msg:'⚠️ ' + t + ' nie je v evidencii – zapísané do poznámky.'};
-  }
-  if (r.length > 1) return {msg:'Viac zhôd pre ' + text + ' – napíšte celé číslo.'};
-  const v = r[0];
-  if (st.najdene.includes(v.id) || st.navyse.includes(v.id)) return {msg:v.vc + ' už je naskenovaný.'};
+function kontrolaNajdi(st, text){
+  const t = String(text || '').trim(), r = najdiVyd(t);
+  if (!r.length) return {msg:'Nenašiel som: ' + t + ' – nie je v evidencii, dajte vedieť referentke.'};
+  if (r.length > 1) return {msg:'Viac zhôd pre ' + t + ' – napíšte celé číslo.'};
   vibr();
-  if (v.miesto === st.miesto && v.stav !== 'vyradeny') { st.najdene.push(v.id); return {ok:true, msg:'✅ Sedí: ' + v.vc}; }
-  st.navyse.push(v.id);
-  return {ok:true, msg:'⚠️ Navyše: ' + v.vc + ' – v evidencii ' + (v.stav === 'vyradeny' ? 'VYRADENÝ' : nazovMiesta(v.miesto))};
-}
-function kontrolaUloz(st){
-  const evid = V.poMieste[st.miesto] || [], naj = new Set(st.najdene), kde = nazovMiesta(st.miesto);
-  const chyba = evid.filter(v => !naj.has(v.id));
-  if (!st.najdene.length && !st.navyse.length && !st.nezname.length && !confirm('Nenaskenovali ste nič – zapísať, že tu nie je ani jeden z ' + evid.length + ' evidovaných kusov?')) return;
-  const dopl = [st.nezname.length ? 'mimo evidencie: ' + st.nezname.join(', ') : '', st.gps].filter(Boolean).join(' · ');
-  const pozn = t => ['Kontrola polohy – ' + t, dopl].filter(Boolean).join(' · ');
-  const ops = [];
-  for (const id of st.najdene) ops.push({t:'pohyb', vyd:id, typ:'kontrola', kam:st.miesto, pozn:pozn('nájdený')});
-  for (const v of chyba) ops.push({t:'pohyb', vyd:v.id, typ:'kontrola', kam:st.miesto, pozn:pozn('NENÁJDENÝ u ' + kde)});
-  for (const id of st.navyse) { const v = V.vyd[id]; if (v && v.stav !== 'vyradeny') ops.push({t:'pohyb', vyd:id, typ:'kontrola', kam:st.miesto, pozn:pozn('nájdený u ' + kde + ', v evidencii inde')}); }
-  if (ops.length) zmenViac(ops);
-  vibr(); toast(`Kontrola uložená: sedí ${st.najdene.length}, chýba ${chyba.length}, navyše ${st.navyse.length + st.nezname.length}`, 4000);
-  spat();
-}
-/** Výdajníky, pri ktorých posledná kontrola polohy (v mobile sú posledné týždne) skončila „NENÁJDENÝ“ a odvtedy sa nepohli. */
-function nenajdenePriKontrole(){
-  const posl = {};
-  for (const p of Object.values(V.poh)) if (!posl[p.vyd] || p.cas > posl[p.vyd].cas) posl[p.vyd] = p;
-  return Object.values(posl).filter(p => p.typ === 'kontrola' && /NENÁJDENÝ/.test(p.pozn || '')).map(p => ({p, v:V.vyd[p.vyd]})).filter(x => x.v && x.v.stav !== 'vyradeny');
-}
-function vNenajdene(){
-  return {hlavicka: () => ({nazov:'Nenájdené pri kontrole', sub:'posledná kontrola polohy ich nenašla'}),
-    telo(){ const r = nenajdenePriKontrole().sort((a, b) => a.p.cas < b.p.cas ? 1 : -1);
-      return zoznam(r.map(x => x.v), v => { const p = r.find(x => x.v === v).p; return itemVyd(v, esc(fmtCas(p.cas) + ' · ' + p.kto)); }, 'Nič nechýba.'); }};
+  Object.assign(st, {id:r[0].id, vc:'', kam:'', meni:false});
+  return {ok:true};
 }
 
 /* HROMADNÝ PRESUN zo skladu na sklad (napr. pri prevzatí VODAX Lúka → BUDIŠ Lúka) */
@@ -2228,16 +2198,25 @@ const ACT = {
   presunRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = pohybPresun(st, st.vc); toast(r.msg, 3000); if (r.ok) st.vc = ''; renderModal(); },
   presunJeden(){ const st = vrch().st, v = V.vyd[st.jeden]; if (!v) return; const r = pohybPresun(st, v.vc); toast(r.msg, 3000); if (r.ok) spat(); },
   kontrola(){ const o = vKontrola(); otvor(o); gpsZisti(o.st); },
-  kontrolaSken(){ const st = vrch().st; spustiSken({rezim:'rychly', text:'Skenujte všetko, čo je na mieste ' + nazovMiesta(st.miesto), kod: t => { const r = kontrolaKus(st, t); if (r.ok) renderModal(); return r; }}); },
-  kontrolaRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = kontrolaKus(st, st.vc); toast(r.msg, 3000); if (r.ok) st.vc = ''; renderModal(); },
-  kontrolaSem(d){
-    const st = vrch().st, v = V.vyd[d.id]; if (!v) return;
-    zmen({t:'pohyb', vyd:v.id, typ: jeSklad(st.miesto) ? 'presun' : 'vydaj', kam:st.miesto, pozn:['kontrola polohy – nájdený tu, predtým ' + nazovMiesta(v.miesto), st.gps].filter(Boolean).join(' · ')});
-    st.navyse = st.navyse.filter(x => x !== v.id); st.najdene.push(v.id);
-    vibr(); toast('Zapísané: ' + v.vc + ' je na mieste ' + nazovMiesta(st.miesto)); renderModal();
+  kontrolaSken(){ const st = vrch().st; spustiSken({rezim:'kontrola', text:'Naskenujte QR kód výdajníka', kod: t => { const r = kontrolaNajdi(st, t); if (r.ok) { zastavSken(); renderModal(); } return r; }}); },
+  kontrolaRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = kontrolaNajdi(st, st.vc); if (r.msg) toast(r.msg, 3000); renderModal(); },
+  kontrolaOk(){
+    const st = vrch().st, v = V.vyd[st.id]; if (!v) return;
+    zmen({t:'pohyb', vyd:v.id, typ:'kontrola', kam:v.miesto, pozn:['Kontrola polohy – potvrdené', st.gps].filter(Boolean).join(' · ')});
+    st.zapisane.unshift('✅ ' + v.vc + ' · ' + nazovMiesta(v.miesto));
+    Object.assign(st, {id:'', vc:'', kam:'', meni:false});
+    vibr(); toast('Poloha potvrdená'); renderModal();
   },
-  kontrolaUloz(){ kontrolaUloz(vrch().st); },
-  nenajdene(){ otvor(vNenajdene()); },
+  kontrolaMeni(){ vrch().st.meni = true; renderModal(); },
+  kontrolaZmen(){
+    const st = vrch().st, v = V.vyd[st.id]; if (!v || !st.kam) return;
+    const z = nazovMiesta(v.miesto), r = pohybPresun(st, v.id);
+    toast(r.msg, 3000); if (!r.ok) return renderModal();
+    st.zapisane[0] = '🔁 ' + v.vc + ' · ' + z + ' → ' + nazovMiesta(st.kam);
+    Object.assign(st, {id:'', vc:'', kam:'', meni:false});
+    renderModal();
+  },
+  kontrolaIny(){ const st = vrch().st; if (st.meni) { st.meni = false; st.kam = ''; } else { st.id = ''; st.vc = ''; } renderModal(); },
   stitky(d){ otvor(vStitky([d.id])); },
   stitkyFilter(){ const r = TABS.vydajniky.filtrovane(); if (r.length > 60 && !confirm(`Vo filtri je ${r.length} výdajníkov. Pripraviť štítky pre prvých 60?`)) return; otvor(vStitky(r.slice(0, 60).map(v => v.id))); },
   stitkyTlac(){ const st = vrch().st; $('#tlac').innerHTML = st.obr.map(o => `<img src="${o.png}" alt="">`).join(''); setTimeout(() => window.print(), 150); },
