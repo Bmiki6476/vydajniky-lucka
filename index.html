@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "c3dea7094b";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "c9641c9fae";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -779,8 +779,8 @@ function poTermine(){
   const hr = SRV.meta.sanitMesiacov || 6;
   return Object.values(V.vyd).filter(v => v.stav === 'zakaznik' && Math.min(mesiacov(v.odKedy) ?? 999, mesiacov(v.sanitacia) ?? 999) >= hr);
 }
-/** Oprava polohy pri zvoze je zápisom typu výdaj, ale výjazd k zákazníkovi to nebol – do výkazu sa neráta. */
-const naozajVydaj = p => p.typ === 'vydaj' && !/^Oprava polohy/.test(p.pozn || '');
+/** Oprava polohy (pri zvoze aj pri kontrole polohy) je zápisom typu výdaj, ale výjazd k zákazníkovi to nebol – do výkazu sa neráta. */
+const naozajVydaj = p => p.typ === 'vydaj' && !/^Oprava polohy|kontrola polohy/.test(p.pozn || '');
 const otvoreneUlohy = () => Object.values(V.ul).filter(u => u.stav === 'nova');
 const mojeUlohy = () => otvoreneUlohy().filter(u => !u.pre || u.pre === C.meno);
 
@@ -1490,10 +1490,10 @@ function pridajDiel(n){
 
 /* RÝCHLY VÝDAJ / ZVOZ bez úlohy: zákazník (pri výdaji) alebo sklad (pri zvoze) + skenovanie viacerých kusov */
 function vRychly(typ){
-  return {ziva:true, st:{typ, miesto:'', kam:mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', id:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
-    hlavicka: st => ({nazov: st.typ === 'vydaj' ? 'Výdaj zákazníkovi' : rola() === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', sub: st.overuj && V.vyd[st.id] ? `<span class="mono">${esc(V.vyd[st.id].vc)}</span>` : 'naskenujte každý kus'}),
+  return {ziva:true, st:{typ, miesto:'', kam:mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
+    hlavicka: st => ({nazov: st.typ === 'vydaj' ? 'Výdaj zákazníkovi' : rola() === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', sub: st.overuj && V.vyd[st.kus] ? `<span class="mono">${esc(V.vyd[st.kus].vc)}</span>` : 'naskenujte každý kus'}),
     telo(st){
-      if (st.overuj && V.vyd[st.id]) return zvozPoloha(st, V.vyd[st.id]);
+      if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
       const m = miesto(st.miesto);
       const kde = st.typ === 'vydaj'
         ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
@@ -1533,24 +1533,30 @@ function pohybRychly(st, text){
 
 /* ZVOZ: po naskenovaní najprv poloha z evidencie – šofér ju potvrdí alebo zadá, kde výdajník naozaj je.
    Oprava ide ako samostatný pohyb pred zvozom, aby zvoz (a sanitácia vo výkaze) patril správnemu zákazníkovi. */
+const zvozUlohaMiesto = st => st.uloha ? (V.ul[st.id] || {}).miesto || '' : '';
+const zvozZapis = (st, text) => st.uloha ? pohybKUlohe(st, 'prijem', text) : pohybRychly(st, text);
 function zvozNajdi(st, text){
+  if (!st.kam) return {msg:'Vyberte sklad pre prevzaté výdajníky.'};
   const r = najdiVyd(text);
-  if (r.length !== 1 || r[0].stav === 'vyradeny') return pohybRychly(st, text);
+  if (r.length !== 1 || r[0].stav === 'vyradeny') return zvozZapis(st, text);
   const v = r[0];
-  if (v.miesto !== st.kam && st.potvrdene.includes(v.miesto)) return pohybRychly(st, text);
+  if (v.miesto !== st.kam && (st.potvrdene.includes(v.miesto) || v.miesto === zvozUlohaMiesto(st))) return zvozZapis(st, text);
   vibr();
-  Object.assign(st, {id:v.id, vc:'', meni:false, poloha:''});
+  Object.assign(st, {kus:v.id, vc:'', meni:false, poloha:''});
   return {ok:true, caka:true};
 }
 function zvozPoloha(st, v){
   const naCieli = SKLADOVE.includes(v.stav) && v.miesto === st.kam, neurcite = polohaNeurcita(v);
   const ulozit = st.poloha === st.kam ? 'Uložiť polohu' : 'Uložiť polohu a prevziať';
+  // pri úlohe šofér stojí u zákazníka z úlohy – oprava na neho je na jedno ťuknutie
+  const tu = zvozUlohaMiesto(st), inyNezUloha = !!tu && tu !== v.miesto;
   return `${polohaKarta(v)}
-    ${naCieli ? '<div class="warnbox">Podľa evidencie už je na sklade, kam ho beriete. Ak ste ho prevzali inde, zadajte kde.</div>' : ''}
+    ${naCieli ? '<div class="warnbox">Podľa evidencie už je na sklade, kam ho beriete. Ak ste ho prevzali inde, zadajte kde.</div>' : inyNezUloha ? '<div class="warnbox">Podľa evidencie nie je u zákazníka z tejto úlohy.</div>' : ''}
     ${st.meni ? `${kamVyber(st, 'poloha', 'Kde výdajník naozaj je')}
         <button class="btn ok big" type="button" data-act="zvozZmen" ${st.poloha && st.poloha !== v.miesto ? '' : 'disabled'}>${ulozit}</button>`
-      : `${neurcite || naCieli ? '' : '<button class="btn ok big" type="button" data-act="zvozOk">Áno, je tu – prevziať</button>'}
-        <button class="btn ${neurcite || naCieli ? 'pri big' : ''}" type="button" data-act="zvozMeni">${neurcite || naCieli ? 'Zadať polohu' : 'Nie, je inde – zmeniť polohu'}</button>`}
+      : `${inyNezUloha ? `<button class="btn ok big" type="button" data-act="zvozTu">Je tu, u ${esc(nazovMiesta(tu))} – prevziať</button>` : ''}
+        ${neurcite || naCieli ? '' : `<button class="btn ${inyNezUloha ? '' : 'ok big'}" type="button" data-act="zvozOk">${inyNezUloha ? 'Je tam, ako eviduje systém – prevziať' : 'Áno, je tu – prevziať'}</button>`}
+        <button class="btn ${!inyNezUloha && (neurcite || naCieli) ? 'pri big' : ''}" type="button" data-act="zvozMeni">${inyNezUloha ? 'Je inde – zmeniť polohu' : neurcite || naCieli ? 'Zadať polohu' : 'Nie, je inde – zmeniť polohu'}</button>`}
     <button class="btn" type="button" data-act="zvozIny">${st.meni ? 'Zrušiť' : 'Iný výdajník'}</button>`;
 }
 
@@ -2005,10 +2011,11 @@ function vFormMiesto(id, typ){
 
 /* úlohy */
 function vKartaUlohy(id){
-  return {ziva:true, st:{id, vc:'', kam:mojSklad()},
+  return {ziva:true, st:{id, vc:'', kam:mojSklad(), uloha:true, overuj: rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
     hlavicka(st){ const u = V.ul[st.id] || {}; return {nazov:esc((TYPY_ULOH[u.typ] || 'Úloha') + ' · ' + nazovMiesta(u.miesto)), sub:esc([u.termin ? 'termín ' + fmtD(u.termin) : '', u.pre ? 'pre ' + u.pre : 'ktokoľvek', u.zadal ? 'zadal(a) ' + u.zadal : ''].filter(Boolean).join(' · '))}; },
     telo(st){
       const u = V.ul[st.id]; if (!u) return '<div class="empty-state">Úloha neexistuje.</div>';
+      if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
       const m = miesto(u.miesto) || {nazov:u.miesto, id:u.miesto};
       const adr = [m.adresa, m.psc, m.mesto].filter(Boolean).join(', ');
       const poh = Object.values(V.poh).filter(p => p.uloha === u.id).sort((x, y) => x.cas.localeCompare(y.cas));
@@ -2298,22 +2305,23 @@ const ACT = {
     kod: t => { const r = st.overuj ? zvozNajdi(st, t) : pohybRychly(st, t); if (r.caka) { st.zoSkenu = true; zastavSken(); } if (r.ok) renderModal(); return r; }}); },
   rychlyRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = st.overuj ? zvozNajdi(st, st.vc) : pohybRychly(st, st.vc); if (r.caka) st.zoSkenu = false; if (r.msg) toast(r.msg, 3000); if (r.ok) st.vc = ''; renderModal(); },
   zvozOk(){
-    const st = vrch().st, v = V.vyd[st.id]; if (!v) return;
-    const z = v.miesto, r = pohybRychly(st, v.id);
+    const st = vrch().st, v = V.vyd[st.kus]; if (!v) return;
+    const z = v.miesto, r = zvozZapis(st, v.id);
     toast(r.msg, 3000); if (!r.ok) return renderModal();
     st.potvrdene.push(z); ACT.zvozDalsi();
   },
   zvozMeni(){ vrch().st.meni = true; renderModal(); },
+  zvozTu(){ const st = vrch().st; st.poloha = zvozUlohaMiesto(st); ACT.zvozZmen(); },
   zvozZmen(){
-    const st = vrch().st, v = V.vyd[st.id], kam = st.poloha; if (!v || !kam || kam === v.miesto) return;
+    const st = vrch().st, v = V.vyd[st.kus], kam = st.poloha; if (!v || !kam || kam === v.miesto) return;
     const z = nazovMiesta(v.miesto);
     zmen({t:'pohyb', vyd:v.id, typ: jeSklad(kam) ? 'presun' : 'vydaj', kam, pozn:'Oprava polohy pri zvoze – v evidencii bolo: ' + z});
     if (kam === st.kam) { vibr(); st.zapisane.unshift('🔁 ' + v.vc + ' · ' + z + ' → ' + nazovMiesta(kam)); toast('Poloha opravená', 3000); }
-    else { const r = pohybRychly(st, v.id); toast(r.msg, 3000); if (r.ok) st.potvrdene.push(kam); }
+    else { const r = zvozZapis(st, v.id); toast(r.msg, 3000); if (r.ok) st.potvrdene.push(kam); }
     ACT.zvozDalsi();
   },
   zvozIny(){ const st = vrch().st; if (st.meni) { st.meni = false; st.poloha = ''; renderModal(); } else ACT.zvozDalsi(); },
-  zvozDalsi(){ const st = vrch().st; Object.assign(st, {id:'', vc:'', meni:false, poloha:''}); renderModal(); if (st.zoSkenu) ACT.rychlySken(); },
+  zvozDalsi(){ const st = vrch().st; Object.assign(st, {kus:'', vc:'', meni:false, poloha:''}); renderModal(); if (st.zoSkenu) { if (st.uloha) ACT.skenUloha({typ:'prijem'}); else ACT.rychlySken(); } },
   servisHladaj(){ const i = $('#srvVyd'); if (i && i.value.trim()) servisNajdi(i.value); },
   skenServis(){ spustiSken({rezim:'servis', text:'Naskenujte QR kód výdajníka', kod: t => { const r = najdiVyd(t); if (r.length === 1) { zastavSken(); otvorServis(r[0].id); return {ok:true}; } return {msg: r.length ? 'Viac zhôd' : 'Nenašiel som: ' + t}; }}); },
   srvZaznam(){ SERVIS.zaznam = true; SERVIS.kod = rola() === 'sofer' ? 'P' : ''; TABS.servis.obnov(); },
@@ -2473,12 +2481,23 @@ const ACT = {
   ulohaHotovo(){ const st = vrch().st; zmen({t:'uloha', id:st.id, patch:{hotovo:true, hotovoPozn:(st.pozn || '').trim()}}); vibr(); toast('Úloha hotová'); zavriModal(); },
   ulohaZnova(){ zmen({t:'uloha', id:vrch().st.id, patch:{hotovo:false}}); },
   ulohaZrus(){ if (!confirm('Zrušiť úlohu?')) return; zmen({t:'uloha', id:vrch().st.id, patch:{stav:'zrusena'}}); toast('Úloha zrušená'); zavriModal(); },
-  ulohaRucne(d){ const st = vrch().st, r = pohybKUlohe(st, d.typ, st.vc); toast(r.msg, 3000); if (r.ok) { st.vc = ''; renderModal(); } },
+  ulohaRucne(d){
+    const st = vrch().st, over = d.typ === 'prijem' && st.overuj;
+    if (over && !String(st.vc || '').trim()) return;
+    const r = over ? zvozNajdi(st, st.vc) : pohybKUlohe(st, d.typ, st.vc);
+    if (r.caka) st.zoSkenu = false;
+    if (r.msg) toast(r.msg, 3000);
+    if (r.ok) { st.vc = ''; renderModal(); }
+  },
   skenUloha(d){
     const v = vrch(), st = v.st;
     if (d.typ === 'prijem' && !st.kam) return toast('Najprv vyberte sklad, kam idú prevzaté výdajníky.');
     spustiSken({rezim:'uloha', text: d.typ === 'vydaj' ? 'Skenujte výdajníky, ktoré nechávate u zákazníka' : 'Skenujte výdajníky, ktoré beriete od zákazníka',
-      kod: t => { const r = pohybKUlohe(st, d.typ, t); return {msg:r.msg, ok:r.ok}; }});
+      kod: t => {
+        const r = d.typ === 'prijem' && st.overuj ? zvozNajdi(st, t) : pohybKUlohe(st, d.typ, t);
+        if (r.caka) { st.zoSkenu = true; zastavSken(); renderModal(); }
+        return {msg:r.msg, ok:r.ok};
+      }});
   },
   skenNajdi(){ spustiSken({rezim:'najdi', text:'Namierte na QR kód na výdajníku', kod: t => {
     const r = najdiVyd(t);
