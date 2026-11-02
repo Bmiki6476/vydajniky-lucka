@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "b5f168a4f8";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "c4ce7cb440";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -750,6 +750,17 @@ const nazovMiesta = id => { if (!id) return '—'; const m = V.mie[id]; return m
 const textMiesta = id => { const m = V.mie[id]; return m ? m.nazov + ' ' + m.id : String(id || ''); };
 const jeSklad = id => { const m = V.mie[id]; return !!m && m.typ === 'sklad'; };
 const mojSklad = () => C.sklad && V.mie[C.sklad] && skladViditelny(V.mie[C.sklad]) ? C.sklad : '';
+/** Kam idú výdajníky stiahnuté od zákazníka: šofér nevyberá, určuje to prihlásenie (bratislavskí na White Logistics, ostatní na príjem Lúka). */
+const SOFERI_BA = ['Yurii Yakym', 'František Kuba'];
+function skladZvozu(){
+  if (rola() !== 'sofer') return '';
+  const id = SOFERI_BA.includes(C.meno) ? 'SKLAD BA 06' : 'LUKA-PRIJEM', m = V.mie[id];
+  return m && m.zmazane !== 'áno' ? id : '';
+}
+const kamZvozu = () => skladZvozu() || mojSklad();
+const poleSkladuZvozu = (st, nadpis) => skladZvozu()
+  ? `<div class="fld"><label>${esc(nadpis)}</label><div class="item"><div class="main"><div class="name viacriadkov">${esc(nazovMiesta(skladZvozu()))}</div><div class="sub">nastavené podľa prihlásenia</div></div></div></div>`
+  : `<div class="fld"><label>${esc(nadpis)}</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
 const nasVlastnik = v => !v.vlastnik;
 const jadro = id => String(id).split(' ')[0];
 /** Nájde výdajník podľa QR, výrobného čísla (aj „serial no“ s prefixom) alebo evidenčného čísla 230/19. */
@@ -1493,7 +1504,7 @@ function pridajDiel(n){
 
 /* RÝCHLY VÝDAJ / ZVOZ bez úlohy: zákazník (pri výdaji) alebo sklad (pri zvoze) + skenovanie viacerých kusov */
 function vRychly(typ){
-  return {ziva:true, st:{typ, miesto:'', kam:mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
+  return {ziva:true, st:{typ, miesto:'', kam: typ === 'prijem' ? kamZvozu() : mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
     hlavicka: st => ({nazov: st.typ === 'vydaj' ? 'Výdaj zákazníkovi' : rola() === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', sub: st.overuj && V.vyd[st.kus] ? `<span class="mono">${esc(V.vyd[st.kus].vc)}</span>` : 'naskenujte každý kus'}),
     telo(st){
       if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
@@ -1501,7 +1512,7 @@ function vRychly(typ){
       const kde = st.typ === 'vydaj'
         ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
           : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>`
-        : `<div class="fld"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
+        : poleSkladuZvozu(st, 'Prevzaté idú na sklad');
       const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
       return `${kde}
         <button class="btn pri big" type="button" data-act="rychlySken" ${pripraveny ? '' : 'disabled'}>${svg('qr')}Skenovať výdajníky</button>
@@ -1827,7 +1838,8 @@ function vKartaVyd(id){
 /* výdaj / prevzatie / presun */
 function vFormPohyb(id, typ, preset){
   const v0 = V.vyd[id];
-  const st = Object.assign({id, typ, kam: typ === 'vydaj' ? '' : typ === 'prijem' ? mojSklad() : '', dl:'', pozn:'', porucha:false}, preset || {});
+  const st = Object.assign({id, typ, kam: typ === 'vydaj' ? '' : typ === 'prijem' ? kamZvozu() : '', dl:'', pozn:'', porucha:false}, preset || {});
+  if (typ === 'prijem' && skladZvozu()) st.kam = skladZvozu();
   if (typ === 'presun' && v0 && st.kam === v0.miesto) st.kam = '';
   return {st,
     hlavicka: st => ({nazov:esc(TYPY_POHYBU[st.typ]), sub:`<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span> · ${esc((V.vyd[st.id] || {}).model || '')}`}),
@@ -1836,7 +1848,7 @@ function vFormPohyb(id, typ, preset){
       let kde;
       if (st.typ === 'vydaj') kde = `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik">Zmeniť</button></div>`
         : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" style="width:100%">Vybrať zákazníka</button>'}</div>`;
-      else kde = `<div class="fld"><label>${st.typ === 'prijem' ? 'Na sklad' : 'Na sklad'}</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
+      else kde = st.typ === 'prijem' ? poleSkladuZvozu(st, 'Na sklad') : `<div class="fld"><label>Na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
       const varov = st.typ === 'vydaj' && v.stav === 'spinavy' ? '<div class="warnbox">Výdajník čaká na sanitáciu – naozaj ho vydať?</div>'
         : st.typ === 'vydaj' && (v.stav === 'oprava' || v.stav === 'vyradenie') ? '<div class="warnbox">Výdajník je v oprave / na vyradenie.</div>' : '';
       return `${varov}<div class="note">Teraz: ${pill(v.stav)} ${esc(nazovMiesta(v.miesto))}</div>${kde}
@@ -2014,7 +2026,7 @@ function vFormMiesto(id, typ){
 
 /* úlohy */
 function vKartaUlohy(id){
-  return {ziva:true, st:{id, vc:'', kam:mojSklad(), uloha:true, overuj: rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
+  return {ziva:true, st:{id, vc:'', kam:kamZvozu(), uloha:true, overuj: rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
     hlavicka(st){ const u = V.ul[st.id] || {}; return {nazov:esc((TYPY_ULOH[u.typ] || 'Úloha') + ' · ' + nazovMiesta(u.miesto)), sub:esc([u.termin ? 'termín ' + fmtD(u.termin) : '', u.pre ? 'pre ' + u.pre : 'ktokoľvek', u.zadal ? 'zadal(a) ' + u.zadal : ''].filter(Boolean).join(' · '))}; },
     telo(st){
       const u = V.ul[st.id]; if (!u) return '<div class="empty-state">Úloha neexistuje.</div>';
@@ -2035,7 +2047,7 @@ function vKartaUlohy(id){
           ${u.podpis ? `<dt>Podpis</dt><dd>✍ ${esc(u.podpis.split('|')[0])}${u.podpis.split('|')[1] ? ` · <a href="#" data-act="podpisUkaz" data-pf="${esc(u.podpis.split('|')[1])}">zobraziť</a>` : ' · čaká na odoslanie'}</dd>` : ''}</dl>
         ${otv ? `<div class="card" style="margin:0"><h3>Výdajníky k úlohe</h3>
           <div class="actions two"><button class="btn pri" type="button" data-act="skenUloha" data-typ="vydaj">Vydať – skenovať</button><button class="btn pri" type="button" data-act="skenUloha" data-typ="prijem">Prevziať – skenovať</button></div>
-          <div class="fld" style="margin-top:10px"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>
+          <div style="margin-top:10px">${poleSkladuZvozu(st, 'Prevzaté idú na sklad')}</div>
           <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="ulohaRucne" data-typ="vydaj">Vydať</button><button class="btn small" type="button" data-act="ulohaRucne" data-typ="prijem">Prevziať</button></div></div>` : ''}
         ${poh.length ? `<div><b>Zapísané pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div>
           <button class="btn" type="button" data-act="protokolUloha" style="margin-top:8px;width:100%">📄 Protokol pre zákazníka (PDF)</button></div>` : ''}
