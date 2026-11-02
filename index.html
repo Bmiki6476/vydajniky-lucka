@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "c9641c9fae";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fb25d9fbf9";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -241,6 +241,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .vinput .btn{flex:none}
 .rychly-list{display:grid;gap:6px}
 @media (max-width:440px){.iconbtn span,.sync span{display:none}.titlerow h1{font-size:15.5px}.who{max-width:34%}}
+.name.viacriadkov,.sub.viacriadkov{white-space:normal;overflow:visible;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -741,8 +742,9 @@ function pocetOM(m){
   if (firmyZ !== V.mie) { firmyZ = V.mie; firmyN = {}; for (const x of Object.values(V.mie)) if (x.typ === 'zakaznik' && x.zmazane !== 'áno') firmyN[x.nazov] = (firmyN[x.nazov] || 0) + 1; }
   return firmyN[m.nazov] || 0;
 }
-const menoMiesta = m => m.typ === 'zakaznik' && pocetOM(m) > 1 ? m.id : (m.nazov || m.id);
-const firmaMiesta = m => menoMiesta(m) !== m.nazov ? m.nazov : '';
+const kratkyNazov = n => String(n || '').replace(/^.*skrátený názov:\s*/i, '').replace(/_x000D_/g, '').trim();
+const menoMiesta = m => m.typ === 'zakaznik' && m.nazov && m.id && m.id !== m.nazov ? kratkyNazov(m.nazov) + ' · ' + m.id : (m.nazov || m.id);
+const firmaMiesta = m => '';
 const adresaMiesta = m => [m.adresa, m.mesto, firmaMiesta(m)].filter(Boolean).join(', ');
 const nazovMiesta = id => { if (!id) return '—'; const m = V.mie[id]; return m ? menoMiesta(m) : id; };
 const textMiesta = id => { const m = V.mie[id]; return m ? m.nazov + ' ' + m.id : String(id || ''); };
@@ -791,13 +793,13 @@ function itemVyd(v, extra){
   const san = v.sanitacia ? 'sanit. ' + vek(v.sanitacia) : 'bez sanitácie';
   return `<button class="item${v.cak ? ' cak' : ''}" type="button" data-act="vyd" data-id="${esc(v.id)}">
     <div class="main"><div class="name"><span class="mono">${esc(v.vc || v.id)}</span> <span class="muted small">${esc(v.model)}</span></div>
-    <div class="sub">${pill(v.stav)} ${esc(m)}${v.odKedy ? ' · od ' + esc(fmtD(v.odKedy)) : ''}${v.navrh ? ' · <b>návrh na vyradenie</b>' : ''}${v.vlastnik ? ' · zákazníka' : ''}${extra ? ' · ' + extra : ''}</div></div>
+    <div class="sub viacriadkov">${pill(v.stav)} ${esc(m)}${v.odKedy ? ' · od ' + esc(fmtD(v.odKedy)) : ''}${v.navrh ? ' · <b>návrh na vyradenie</b>' : ''}${v.vlastnik ? ' · zákazníka' : ''}${extra ? ' · ' + extra : ''}</div></div>
     <div class="qty">${esc(san)}</div></button>`;
 }
 function itemMiesto(m){
   const n = (V.poMieste[m.id] || []).length;
   return `<button class="item${m.cak ? ' cak' : ''}" type="button" data-act="miesto" data-id="${esc(m.id)}">
-    <div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}${m.ico ? ' · IČO ' + esc(m.ico) : ''}</div></div>
+    <div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}${m.ico ? ' · IČO ' + esc(m.ico) : ''}</div></div>
     <div class="qty"><div class="n">${n}</div>ks</div></button>`;
 }
 function itemUloha(u){
@@ -1496,7 +1498,7 @@ function vRychly(typ){
       if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
       const m = miesto(st.miesto);
       const kde = st.typ === 'vydaj'
-        ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
+        ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
           : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>`
         : `<div class="fld"><label>Prevzaté idú na sklad</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
       const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
@@ -1571,7 +1573,7 @@ function gpsZisti(st){
 const gpsNota = st => st.gps ? '📍 Poloha zaznamenaná (' + esc(st.gps.replace('GPS ', '')) + ').' : '📍 Poloha mobilu nie je k dispozícii – zapíše sa bez nej.';
 function kamVyber(st, pole, nadpis){
   const m = miesto(st[pole]), typy = `<button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="${pole}">Zákazník</button><button class="btn small" type="button" data-act="vyberMiesto" data-typ="sklad" data-pole="${pole}">Sklad</button>`;
-  return `<div class="fld"><label>${esc(nadpis)}</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(jeSklad(m.id) ? 'sklad' : adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).length} ks</div></div></div>
+  return `<div class="fld"><label>${esc(nadpis)}</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(jeSklad(m.id) ? 'sklad' : adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).length} ks</div></div></div>
       <div class="row" style="margin-top:6px"><span class="note" style="margin:0">Zmeniť:</span>${typy}</div>`
     : `<div class="actions two"><button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="${pole}">Zákazník</button><button class="btn pri" type="button" data-act="vyberMiesto" data-typ="sklad" data-pole="${pole}">Sklad</button></div>`}</div>`;
 }
@@ -1831,7 +1833,7 @@ function vFormPohyb(id, typ, preset){
     telo(st){
       const v = V.vyd[st.id], m = miesto(st.kam);
       let kde;
-      if (st.typ === 'vydaj') kde = `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik">Zmeniť</button></div>`
+      if (st.typ === 'vydaj') kde = `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik">Zmeniť</button></div>`
         : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" style="width:100%">Vybrať zákazníka</button>'}</div>`;
       else kde = `<div class="fld"><label>${st.typ === 'prijem' ? 'Na sklad' : 'Na sklad'}</label>${fSel('kam', st, skladyOpts(true), '— vyberte sklad —')}</div>`;
       const varov = st.typ === 'vydaj' && v.stav === 'spinavy' ? '<div class="warnbox">Výdajník čaká na sanitáciu – naozaj ho vydať?</div>'
@@ -2052,7 +2054,7 @@ function vFormUloha(id, preset){
     telo(st){
       const m = miesto(st.miesto);
       return `<div class="fld"><label>Čo treba</label><div class="row">${Object.entries(TYPY_ULOH).map(([k, l]) => `<button class="chip${st.typ === k ? ' on' : ''}" type="button" data-act="uTyp" data-k="${k}">${esc(l)}</button>`).join('')}</div></div>
-        <div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
+        <div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
           : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>
         <div class="grid2"><div class="fld"><label>Počet kusov</label><input type="number" min="0" ${fIn('pocet', st)}></div><div class="fld"><label>Termín</label><input type="date" ${fIn('termin', st)}></div></div>
         <div class="fld"><label>Pre koho</label>${fSel('pre', st, ludia.map(l => [l.meno, l.meno + ' (' + (ROLY[l.rola] || l.rola) + ')']), 'ktokoľvek zo šoférov')}</div>
