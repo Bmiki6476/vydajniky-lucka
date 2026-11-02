@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fb25d9fbf9";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e5efca5577";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -2831,8 +2831,33 @@ else ukazLogin();
 obnovSyncStav();
 </script>
 <script>
-// offline štart a ikona na ploche (service worker); po novej verzii sa appka sama obnoví pri ďalšom otvorení
+// offline štart a ikona na ploche (service worker)
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+// appka nechaná otvorená by ostala na starej verzii: po návrate do okna a každých 5 minút overí verzia.txt.
+// Obnoví sa, až keď človek nič nerobí (žiadne okno, skener, písanie, odosielanie); čakajúce zápisy prežijú, sú v pamäti mobilu.
+(function () {
+  let nova = '';
+  const pokoj = () => !STACK.length && !SKEN.bezi && !OUT.length && !syncBezi && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+  function obnov() {
+    if (!nova || !pokoj()) return;
+    let bolo = ''; try { bolo = sessionStorage.getItem('vyd-obnova') || ''; } catch (e) {}
+    if (bolo === nova) return;   // jeden pokus na verziu, aby sa stránka nezacyklila, keby sieť ešte dávala starú
+    try { sessionStorage.setItem('vyd-obnova', nova); } catch (e) {}
+    const hotovo = () => location.reload();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => r ? r.update() : 0).then(hotovo, hotovo); else hotovo();
+  }
+  function over() {
+    fetch('verzia.txt?t=' + Date.now(), {cache: 'no-store'}).then(r => r.ok ? r.text() : '').then(t => {
+      t = t.trim();
+      if (t && t !== window.WEB_VERZIA) { nova = t; obnov(); }
+    }).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') over(); });
+  window.addEventListener('focus', over);
+  setInterval(over, 5 * 60000);
+  setInterval(obnov, 15000);
+  over();
+})();
 </script>
 </body>
 </html>

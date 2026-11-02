@@ -1,7 +1,7 @@
-// Service worker Výdajníky Lucka – verzia fb25d9fbf9
+// Service worker Výdajníky Lucka – verzia e5efca5577
 // Stránka: najprv sieť (nová verzia hneď), bez signálu z pamäte. Knižnice a ikony: z pamäte.
 // Volania servera (script.google.com) sa NIKDY neukladajú – offline fronta zmien je v appke.
-const CACHE = 'vydajniky-fb25d9fbf9';
+const CACHE = 'vydajniky-e5efca5577';
 const ZAKLAD = ['./', 'index.html', 'manifest.webmanifest', 'ikona-192.png', 'ikona-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 const KNIZNICE = ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ZAKLAD)).then(() => self.skipWaiting())); });
@@ -10,9 +10,9 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const r = e.request, u = new URL(r.url);
-  if (r.method !== 'GET') return;
+  if (r.method !== 'GET' || u.pathname.endsWith('verzia.txt')) return;
   if (r.mode === 'navigate') {
-    e.respondWith(fetch(r).then(res => { const k = res.clone(); caches.open(CACHE).then(c => c.put('index.html', k)); return res; })
+    e.respondWith(fetch(r.url, {cache: 'no-cache'}).then(res => { const k = res.clone(); caches.open(CACHE).then(c => c.put('index.html', k)); return res; })
       .catch(() => caches.match('index.html')));
     return;
   }
