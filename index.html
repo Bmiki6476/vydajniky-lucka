@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "4e5ce573db";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e6b9ca05dd";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -941,9 +941,8 @@ TABS.vydajniky = {nazov:'Výdajníky', limit:80,
 };
 
 /* ZÁKAZNÍCI A SKLADY */
-TABS.miesta = {nazov:'Zákazníci', limit:60,
+TABS.miesta = {nazov:'Zákazníci',
   kostra(){
-    this.limit = 60;
     return `<div class="filters"><input type="search" id="mQ" placeholder="Názov, mesto, ulica, IČO…" value="${esc(C.f.mq)}">
       <div class="row"><div class="seg" style="flex:1"><button type="button" data-act="mTyp" data-k="zakaznik" class="${C.f.mtyp === 'zakaznik' ? 'on' : ''}">Zákazníci</button><button type="button" data-act="mTyp" data-k="sklad" class="${C.f.mtyp === 'sklad' ? 'on' : ''}">Sklady</button></div>
       ${jeRef() ? '<button class="btn small" type="button" data-act="noveMiesto">+ Nové</button>' : ''}</div></div>
@@ -952,8 +951,7 @@ TABS.miesta = {nazov:'Zákazníci', limit:60,
   obnov(){
     const r = hladajMiesta(C.f.mq, C.f.mtyp);
     $('#mInfo').textContent = r.length + (C.f.mtyp === 'sklad' ? ' skladov' : ' zákazníkov / odberných miest') + ' · číslo vpravo = výdajníky na mieste';
-    $('#mList').innerHTML = zoznam(r.slice(0, this.limit), itemMiesto, 'Nič sa nenašlo.') +
-      (r.length > this.limit ? `<button class="btn more" type="button" data-act="viac" data-tab="miesta">Zobraziť ďalších (${r.length - this.limit})</button>` : '');
+    $('#mList').innerHTML = zoznam(r, itemMiesto, 'Nič sa nenašlo.');
   }
 };
 
@@ -1034,7 +1032,7 @@ TABS.hladaj = {nazov:'Hľadať',
     const q = C.f.hq;
     if (!q) $('#hList').innerHTML = '<p class="note">Naskenujte QR kód na výdajníku alebo napíšte číslo. Evidenčné číslo je na žltom štítku (napr. 230/19).</p>';
     else {
-      const v = hladajVyd(q, 40), m = hladajMiesta(q, '', 15).filter(x => norm(x.nazov + ' ' + x.mesto).includes(norm(q)));
+      const v = hladajVyd(q, 40), m = hladajMiesta(q, '').filter(x => norm(x.nazov + ' ' + x.mesto).includes(norm(q)));
       $('#hList').innerHTML = (v.length ? `<div class="group"><h2>Výdajníky</h2></div>${zoznam(v, x => itemVyd(x))}` : '') +
         (m.length ? `<div class="group"><h2>Zákazníci a sklady</h2></div>${zoznam(m, itemMiesto)}` : '') +
         (!v.length && !m.length ? `<div class="empty-state">Nič sa nenašlo.${jeSanit() ? `<br><br><button class="btn small" type="button" data-act="novyVyd" data-vc="${esc(q)}">+ Založiť nový výdajník ${esc(q)}</button>` : ''}</div>` : '');
@@ -1839,9 +1837,10 @@ function ulozPohyb(st){
 function vVyberMiesta(typ, cb){
   return {st:{q:''},
     hlavicka: () => ({nazov: typ === 'sklad' ? 'Vyberte sklad' : 'Vyberte zákazníka'}),
-    telo: st => `<input type="search" ${fIn('q', st, 'placeholder="Názov, mesto, ulica, IČO…" id="vmQ"')}><div id="vmList"></div>`,
+    telo: st => `<input type="search" ${fIn('q', st, 'placeholder="Názov, mesto, ulica, IČO…" id="vmQ"')}><div class="note" id="vmInfo" style="margin:8px 0"></div><div id="vmList"></div>`,
     po(st){ this.zmena('q', st); const i = $('#vmQ'); if (i && matchMedia('(pointer:fine)').matches) i.focus(); },
-    zmena(f, st){ if (f !== 'q') return; const r = hladajMiesta(st.q, typ, 50);
+    zmena(f, st){ if (f !== 'q') return; const r = hladajMiesta(st.q, typ);
+      $('#vmInfo').textContent = r.length + (typ === 'sklad' ? ' skladov' : ' zákazníkov / odberných miest');
       $('#vmList').innerHTML = zoznam(r, m => itemMiesto(m).replace('data-act="miesto"', 'data-act="vyberMiestoOk"'), 'Nič sa nenašlo.'); },
     cb};
 }
