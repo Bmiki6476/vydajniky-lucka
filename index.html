@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e5efca5577";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "b5f168a4f8";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -959,7 +959,7 @@ TABS.miesta = {nazov:'Zákazníci',
   kostra(){
     return `<div class="filters"><input type="search" id="mQ" placeholder="Názov, mesto, ulica, IČO…" value="${esc(C.f.mq)}">
       <div class="row"><div class="seg" style="flex:1"><button type="button" data-act="mTyp" data-k="zakaznik" class="${C.f.mtyp === 'zakaznik' ? 'on' : ''}">Zákazníci</button><button type="button" data-act="mTyp" data-k="sklad" class="${C.f.mtyp === 'sklad' ? 'on' : ''}">Sklady</button></div>
-      ${jeRef() ? '<button class="btn small" type="button" data-act="noveMiesto">+ Nové</button>' : ''}</div></div>
+      ${jeRef() ? '<button class="btn small" type="button" data-act="noveMiesto">+ Pridať</button>' : ''}</div></div>
       <div class="note" id="mInfo" style="margin-bottom:8px"></div><div id="mList"></div>`;
   },
   obnov(){
@@ -1106,13 +1106,14 @@ TABS.domov = {nazov:'Domov',
       servis: tile('servis', 'Servis', 'sanitácia, oprava, revízia', 'data-act="tab" data-tab="servis"'),
       sanitacia: tile('sanitacia', 'Sanitácia', caka + ' čaká na sanitáciu', 'data-act="tab" data-tab="sanitacia"'),
       miesta: tile('miesta', 'Zákazníci', 'kontakty a výdajníky', 'data-act="tab" data-tab="miesta"'),
+      novyZak: tile('miesta', 'Pridať zákazníka', 'nové odberné miesto', 'data-act="noveMiesto" data-typ="zakaznik"'),
       hladaj: tile('hladaj', 'Hľadať výdajník', 'číslo, model, zákazník', 'data-act="tab" data-tab="hladaj"'),
       vydajniky: tile('vydajniky', 'Výdajníky', Object.values(V.vyd).filter(v => v.stav !== 'vyradeny').length + ' aktívnych', 'data-act="tab" data-tab="vydajniky"'),
       prehlad: tile('prehlad', 'Prehľad a výkazy', 'stav, výmeny, Excel', 'data-act="tab" data-tab="prehlad"'),
       viac: tile('nastav', jeAdmin() ? 'Správa a nastavenia' : 'Nastavenia', 'sklad, synchronizácia', 'data-act="tab" data-tab="viac"')
     };
     // referentka a správca majú všetky dlaždice
-    const vsetky = ['prehlad','ulohy','vydaj','zvoz','presun','kontrola','vydajniky','miesta','servis','sanitacia','diely','hladaj','viac'];
+    const vsetky = ['prehlad','ulohy','vydaj','zvoz','presun','kontrola','vydajniky','miesta','novyZak','servis','sanitacia','diely','hladaj','viac'];
     const poradie = {sofer:['ulohy','vydaj','zvoz','presun','kontrola','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','presun','kontrola','vydajniky','diely','hladaj','viac'],
       referentka:vsetky, admin:vsetky}[r] || ['hladaj'];
     return `<div class="hello"><h2>${esc(pozdrav)}, ${esc(String(C.meno || '').split(' ')[0])}</h2><div class="s">${esc(ROLY[r] || '')}${mojSklad() ? ' · ' + esc(nazovMiesta(mojSklad())) : ''} · ${esc(new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'numeric'}))}</div></div>
@@ -1998,7 +1999,7 @@ function vFormMiesto(id, typ){
   const ref = jeRef();
   return {st,
     hlavicka: st => ({nazov: m ? esc(menoMiesta(m)) : st.typ === 'sklad' ? 'Nový sklad' : 'Nový zákazník / odberné miesto'}),
-    telo: st => (ref ? `${m ? '' : `<div class="fld"><label>Kód (krátky, jedinečný – napr. ako vo SPIN)</label><input type="text" ${fIn('id', st)}></div>`}
+    telo: st => (ref ? `${m ? '' : `<div class="fld"><label>${st.typ === 'sklad' ? 'Kód (krátky, jedinečný)' : 'Prevádzka / kód (nepovinné, napr. VELUX Partizánske)'}</label><input type="text" ${fIn('id', st)}></div>`}
       <div class="fld"><label>Názov</label><input type="text" ${fIn('nazov', st)}></div>
       ${st.typ !== 'sklad' ? `<div class="grid2"><div class="fld"><label>IČO</label><input type="text" ${fIn('ico', st)}></div><div class="fld"><label>PSČ</label><input type="text" ${fIn('psc', st)}></div></div>
       <div class="fld"><label>Ulica</label><input type="text" ${fIn('adresa', st)}></div><div class="fld"><label>Mesto</label><input type="text" ${fIn('mesto', st)}></div>
@@ -2465,7 +2466,13 @@ const ACT = {
     const polia = jeRef() ? ['typ','nazov','ico','adresa','psc','mesto','fakt','faktIco','faktAdresa','kontakt','telefon','email','pozn'] : ['kontakt','telefon','email','pozn'];
     const patch = {}; polia.forEach(k => { patch[k] = String(st[k] ?? '').trim(); });
     let id = d.id;
-    if (!id) { id = String(st.id || '').trim(); if (!id) return toast('Napíšte kód.'); if (V.mie[id]) return toast('Tento kód už existuje.'); if (!patch.nazov) return toast('Napíšte názov.'); }
+    if (!id) {
+      if (!patch.nazov) return toast('Napíšte názov.');
+      const kod = String(st.id || '').trim();
+      if (!kod && patch.typ === 'sklad') return toast('Napíšte kód.');
+      id = kod || patch.nazov;
+      if (V.mie[id]) return toast(kod ? 'Tento kód už existuje.' : 'Taký zákazník už existuje – doplňte prevádzku / kód.', 4000);
+    }
     zmen({t:'miesto', id, patch}); toast('Uložené');
     if (!d.id) nahrad(vKartaMiesta(id)); else spat();
   },
