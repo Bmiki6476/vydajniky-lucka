@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "18bd22d6b4";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "4e5ce573db";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -263,7 +263,8 @@ details summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 <div class="login" id="login">
   <form class="card" id="loginForm" autocomplete="on">
     <h2>Výdajníky Lucka</h2>
-    <p class="note" style="margin:0">Evidencia výdajníkov – výdaj a zvoz u zákazníkov, sanitácie, opravy. Prihláste sa svojím kódom.</p>
+    <p class="note" style="margin:0">Evidencia výdajníkov – výdaj a zvoz u zákazníkov, sanitácie, opravy. Vyberte svoje meno a zadajte kód.</p>
+    <div class="fld" id="lMenoFld" hidden><label for="lMeno">Meno</label><select id="lMeno"></select></div>
     <div class="fld"><label for="lPin">Váš kód</label><input type="password" id="lPin" inputmode="numeric" autocomplete="current-password" required></div>
     <div class="err" id="lErr"></div>
     <button class="btn pri" type="submit" id="lBtn">Prihlásiť</button>
@@ -692,11 +693,21 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('online', () => sync());
 
 /* ---------- prihlásenie ---------- */
-function ukazLogin(){ $('#lPin').value = ''; $('#lErr').textContent = ''; $('#lInstal').innerHTML = instalKarta(); $('#login').classList.add('on'); }
+function ukazLogin(){ $('#lPin').value = ''; $('#lErr').textContent = ''; $('#lInstal').innerHTML = instalKarta(); $('#login').classList.add('on'); nacitajMena(); }
+function nacitajMena(){
+  return api('menaPrihlasenie').then(z => {
+    const s = $('#lMeno'), vybrane = s.value || C.meno || '';
+    s.innerHTML = '<option value="">— vyberte —</option>' + z.slice().sort((a, b) => a.localeCompare(b, 'sk')).map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    s.value = z.includes(vybrane) ? vybrane : '';
+    $('#lMenoFld').hidden = false;
+  }).catch(() => {});
+}
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const pin = $('#lPin').value.trim();
-  if (!pin) return;
+  const kod = $('#lPin').value.trim(), meno = $('#lMeno').value;
+  if (!kod) return;
+  if (!$('#lMenoFld').hidden && !meno) { $('#lErr').textContent = 'Vyberte svoje meno.'; return; }
+  const pin = meno ? meno + '|' + kod : kod;
   $('#lBtn').disabled = true; $('#lErr').textContent = '';
   try {
     const r = await api('prihlas', pin);
@@ -1037,7 +1048,7 @@ TABS.viac = {nazov:'Viac',
   kostra: () => `
     <div class="card"><h3>Prihlásený</h3><dl class="dl" id="xJa"></dl>
       <div class="fld" style="margin-top:12px"><label for="xSklad">Môj sklad (sem idú prevzaté výdajníky)</label><select id="xSklad"></select></div>
-      <div class="actions two" style="margin-top:12px"><button class="btn danger" type="button" data-act="odhlas">Odhlásiť sa</button></div></div>
+      <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="mojKod">Zmeniť môj kód</button><button class="btn danger" type="button" data-act="odhlas">Odhlásiť sa</button></div></div>
     <div class="card"><h3>Synchronizácia</h3><dl class="dl" id="xSync"></dl>
       <div class="actions two" style="margin-top:12px"><button class="btn" type="button" data-act="syncTeraz">Synchronizovať teraz</button><button class="btn" type="button" data-act="nacitajZnova">Načítať všetko znova</button></div>
       <p class="note">Každá zmena sa hneď posiela do spoločnej databázy. Bez signálu zmeny čakajú v mobile a odošlú sa samé. Kým čakajú, neodhlasujte sa.</p></div>
@@ -2037,7 +2048,7 @@ function vLudia(){
     hlavicka: () => ({nazov:'Používatelia a kódy', sub:'Každý má vlastný kód – pri zápisoch je vidieť, kto čo urobil.'}),
     telo(st){
       if (!st.zoznam) return st.chyba ? `<div class="warnbox">${esc(st.chyba)}</div>` : '<div class="empty-state">Načítavam…</div>';
-      return `<button class="btn pri" type="button" data-act="fClovek">+ Pridať človeka</button>
+      return `<div class="actions two"><button class="btn pri" type="button" data-act="fClovek">+ Pridať človeka</button><button class="btn" type="button" data-act="fKodVsetkym">Kód všetkým okrem správcov</button></div>
         <div class="list">${st.zoznam.sort((a, b) => (a.aktivny === 'nie') - (b.aktivny === 'nie') || a.meno.localeCompare(b.meno, 'sk')).map(u => `<button class="item" type="button" data-act="fClovek" data-meno="${esc(u.meno)}">
           <div class="main"><div class="name">${esc(u.meno)}</div><div class="sub">${esc(ROLY[u.rola] || u.rola)}${u.sklad ? ' · ' + esc(nazovMiesta(u.sklad)) : ''}${u.aktivny === 'nie' ? ' · vypnutý' : ''}</div></div>
           <div class="qty mono">${u.aktivny === 'nie' ? '' : esc(u.pin)}</div></button>`).join('')}</div>
@@ -2060,6 +2071,23 @@ function vClovek(u, ludiaView){
       <button class="btn pri" type="button" data-act="ulozCloveka" data-stare="${esc(u ? u.meno : '')}">Uložiť</button>`,
     zmena(f){ if (f === 'rola') renderModal(); },
     ludiaView};
+}
+
+function vKodVsetkym(ludiaView){
+  return {st:{kod:''},
+    hlavicka: () => ({nazov:'Kód všetkým okrem správcov'}),
+    telo: st => `<div class="fld"><label>Nový kód (4–8 číslic)</label><input type="text" inputmode="numeric" class="mono" ${fIn('kod', st)}></div>
+      <p class="note" style="margin:0">Zmení kód všetkým aktívnym ľuďom okrem správcov. Prihlásení sa budú musieť prihlásiť znova.</p>
+      <button class="btn pri" type="button" data-act="ulozKodVsetkym">Nastaviť</button>`,
+    ludiaView};
+}
+/* zmena vlastného kódu */
+function vMojKod(){
+  return {st:{novy:'', znovu:''},
+    hlavicka: () => ({nazov:'Zmeniť môj kód'}),
+    telo: st => `<div class="fld"><label>Nový kód (4–8 číslic)</label><input type="password" inputmode="numeric" autocomplete="new-password" class="mono" ${fIn('novy', st)}></div>
+      <div class="fld"><label>Nový kód ešte raz</label><input type="password" inputmode="numeric" autocomplete="new-password" class="mono" ${fIn('znovu', st)}></div>
+      <button class="btn pri" type="button" data-act="ulozMojKod">Uložiť</button>`};
 }
 
 /* nastavenia (správca) */
@@ -2444,6 +2472,22 @@ const ACT = {
     const u = {meno:st.meno.trim(), rola:st.rola, pin:String(st.pin).trim(), sklad:st.sklad, pozn:st.pozn, aktivny:st.vyp ? 'nie' : 'áno'};
     try { const z = await api('ulozPouzivatela', C.pin, u, d.stare || ''); v.ludiaView.st.zoznam = z; toast('Uložené'); spat(); sync(); }
     catch(e) { toast(jeSiet(e) ? 'Používateľov sa dá meniť len so signálom.' : e.message, 4000); }
+  },
+  fKodVsetkym(){ otvor(vKodVsetkym(vrch())); },
+  async ulozKodVsetkym(){
+    const v = vrch(), kod = String(v.st.kod).trim();
+    if (!/^\d{4,8}$/.test(kod)) return toast('Kód musí mať 4 až 8 číslic.', 3500);
+    if (!confirm('Zmeniť kód všetkým aktívnym ľuďom okrem správcov?')) return;
+    try { v.ludiaView.st.zoznam = await api('kodVsetkym', C.pin, kod); toast('Uložené'); spat(); }
+    catch(e) { toast(jeSiet(e) ? 'Používateľov sa dá meniť len so signálom.' : e.message, 4000); }
+  },
+  mojKod(){ otvor(vMojKod()); },
+  async ulozMojKod(){
+    const st = vrch().st, novy = String(st.novy).trim();
+    if (!/^\d{4,8}$/.test(novy)) return toast('Kód musí mať 4 až 8 číslic.', 3500);
+    if (novy !== String(st.znovu).trim()) return toast('Kódy sa nezhodujú.', 3500);
+    try { await api('zmenMojKod', C.pin, novy); C.pin = C.meno + '|' + novy; ulozConf(); toast('Kód je zmenený'); spat(); }
+    catch(e) { toast(jeSiet(e) ? 'Kód sa dá zmeniť len so signálom.' : e.message, 4000); }
   },
   nastavenia(){ otvor(vNastavenia()); },
   async ulozNastavenia(){ try { SRV.meta = Object.assign(SRV.meta, await api('nastavAdmin', C.pin, {sanitMesiacov:vrch().st.sanitMesiacov})); ulozCache(); toast('Uložené'); spat(); obnovVsetko(); } catch(e) { toast(e.message, 3500); } },
