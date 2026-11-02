@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e6b9ca05dd";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "d3a73b9043";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -537,6 +537,8 @@ const rola = () => SRV ? SRV.meta.rola : C.rola;
 const jeRef = () => ['referentka','admin'].includes(rola());
 const jeAdmin = () => rola() === 'admin';
 const jeSanit = () => ['sanitar','referentka','admin'].includes(rola());
+// šofér vidí len externé sklady, Automobil a príjem na Lúke; ostatné roly všetky
+const skladViditelny = m => rola() !== 'sofer' || /^ext\./i.test(m.nazov) || ['AUTOMOBIL','LUKA-PRIJEM'].includes(m.id);
 
 function zPola(a, p){ const o = {}; p.forEach((k, i) => { o[k] = a[i] ?? ''; }); return o; }
 function mapaZPoli(rows, p){ const m = {}; for (const r of rows || []) { const o = zPola(r, p); m[o.id] = o; } return m; }
@@ -731,11 +733,11 @@ function odhlas(vynutene){
 }
 
 /* ---------- údaje ---------- */
-const sklady = () => Object.values(V.mie).filter(m => m.typ === 'sklad' && m.zmazane !== 'áno').sort((a, b) => (a.id === NEZ) - (b.id === NEZ) || a.nazov.localeCompare(b.nazov, 'sk'));
+const sklady = () => Object.values(V.mie).filter(m => m.typ === 'sklad' && m.zmazane !== 'áno' && skladViditelny(m)).sort((a, b) => (a.id === NEZ) - (b.id === NEZ) || a.nazov.localeCompare(b.nazov, 'sk'));
 const miesto = id => V.mie[id] || null;
 const nazovMiesta = id => { if (!id) return '—'; const m = V.mie[id]; return m ? m.nazov : id; };
 const jeSklad = id => { const m = V.mie[id]; return !!m && m.typ === 'sklad'; };
-const mojSklad = () => C.sklad && V.mie[C.sklad] ? C.sklad : '';
+const mojSklad = () => C.sklad && V.mie[C.sklad] && skladViditelny(V.mie[C.sklad]) ? C.sklad : '';
 const nasVlastnik = v => !v.vlastnik;
 const jadro = id => String(id).split(' ')[0];
 /** Nájde výdajník podľa QR, výrobného čísla (aj „serial no“ s prefixom) alebo evidenčného čísla 230/19. */
@@ -758,7 +760,7 @@ function hladajVyd(q, limit){
 }
 function hladajMiesta(q, typ, limit){
   const n = norm(q);
-  const r = Object.values(V.mie).filter(m => m.zmazane !== 'áno' && (!typ || m.typ === typ) &&
+  const r = Object.values(V.mie).filter(m => m.zmazane !== 'áno' && (m.typ !== 'sklad' || skladViditelny(m)) && (!typ || m.typ === typ) &&
     (!n || norm(m.nazov + ' ' + m.mesto + ' ' + m.adresa + ' ' + m.ico + ' ' + m.id + ' ' + m.fakt).includes(n)));
   r.sort((a, b) => ((V.poMieste[b.id] || []).length - (V.poMieste[a.id] || []).length) || a.nazov.localeCompare(b.nazov, 'sk'));
   return limit ? r.slice(0, limit) : r;
@@ -1510,7 +1512,7 @@ function pohybRychly(st, text){
   } else {
     if (SKLADOVE.includes(v.stav) && v.miesto === st.kam) return {msg:v.vc + ' už je na tomto sklade.'};
     const op = {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam}; zmen(op); st.ids.push(op.id); if (!st.miesto && v.stav === 'zakaznik') st.miesto = v.miesto;
-    if (!C.sklad) { C.sklad = st.kam; ulozConf(); }
+    if (!mojSklad()) { C.sklad = st.kam; ulozConf(); }
   }
   vibr();
   const msg = (st.typ === 'vydaj' ? 'Vydané: ' : 'Prevzaté: ') + v.vc + ' · ' + v.model + (st.typ === 'vydaj' && v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '') + (st.typ === 'prijem' && v.stav === 'zakaznik' ? ' (od ' + nazovMiesta(v.miesto) + ')' : '');
@@ -1828,7 +1830,7 @@ function ulozPohyb(st){
   if (!st.kam) return toast(st.typ === 'vydaj' ? 'Vyberte zákazníka.' : 'Vyberte sklad.');
   zmen({t:'pohyb', vyd:st.id, typ:st.typ, kam:st.kam, dl:st.dl.trim(), pozn:st.pozn.trim(), uloha:st.uloha || ''});
   if (st.porucha) zmen({t:'servis', vyd:st.id, typ:'porucha', popis:st.pozn.trim() || 'pokazený pri prevzatí'});
-  if (st.typ === 'prijem' && !C.sklad) { C.sklad = st.kam; ulozConf(); }
+  if (st.typ === 'prijem' && !mojSklad()) { C.sklad = st.kam; ulozConf(); }
   vibr(); toast(TYPY_POHYBU[st.typ] + ' uložený');
   spat();
 }
@@ -2555,7 +2557,7 @@ function pohybKUlohe(st, typ, text){
   if (!st.kam) return {msg:'Vyberte sklad pre prevzaté výdajníky.'};
   const inde = v.stav === 'zakaznik' && v.miesto !== u.miesto;
   zmen({t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam, uloha:u.id});
-  if (!C.sklad) { C.sklad = st.kam; ulozConf(); }
+  if (!mojSklad()) { C.sklad = st.kam; ulozConf(); }
   vibr(); return {ok:true, msg:'Prevzaté: ' + v.vc + (inde ? ' (v evidencii bol u ' + nazovMiesta(v.miesto) + ')' : '')};
 }
 
