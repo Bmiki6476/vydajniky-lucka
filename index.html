@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "c4ce7cb440";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e0f33d5188";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -768,7 +768,8 @@ function najdiVyd(t){
   const id = normVc(t); if (!id) return [];
   if (V.vyd[id]) return [V.vyd[id]];
   const vsetky = Object.values(V.vyd);
-  if (/^\d{1,5}\/\d{2,4}$/.test(id)) return vsetky.filter(v => v.ev === id);
+  // „vlastné“ kusy zo SPIN majú pole ev prázdne, číslo je len v id („20180123091 86/19 EKOFIN VLASTNÝ“)
+  if (/^\d{1,5}\/\d{2,4}$/.test(id)) return vsetky.filter(v => v.ev === id || v.id.split(' ').includes(id));
   const j = jadro(id);
   return vsetky.filter(v => { const k = jadro(v.id); return k === j || (j.length >= 8 && k.length >= 8 && (j.endsWith(k) || k.endsWith(j))); });
 }
