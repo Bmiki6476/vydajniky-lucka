@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "e0f33d5188";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "21ccdc534b";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -795,6 +795,20 @@ function poTermine(){
 }
 /** Oprava polohy (pri zvoze aj pri kontrole polohy) je zápisom typu výdaj, ale výjazd k zákazníkovi to nebol – do výkazu sa neráta. */
 const naozajVydaj = p => p.typ === 'vydaj' && !/^Oprava polohy|kontrola polohy/.test(p.pozn || '');
+/** Zvozy navyše: ten istý kus od toho istého zákazníka v ten istý deň bez skutočného výdaja medzi nimi (druhý sken). Vráti {id pohybu: prvý zvoz}. */
+function zvozyNavyse(pohyby){
+  const prvy = {}, navyse = {};
+  for (const p of [...pohyby].sort((a, b) => String(a.cas).localeCompare(String(b.cas)))) {
+    if (naozajVydaj(p)) delete prvy[p.vyd + '|' + p.kam];
+    if (p.typ !== 'prijem' || !p.z || jeSklad(p.z)) continue;
+    const k = p.vyd + '|' + p.z;
+    if (prvy[k] && denIso(prvy[k].cas) === denIso(p.cas)) navyse[p.id] = prvy[k];
+    else prvy[k] = p;
+  }
+  return navyse;
+}
+/** Posledný dnešný zvoz kusu – na upozornenie pri druhom skene. */
+const zvozDnes = v => Object.values(V.poh).filter(p => p.vyd === v.id && p.typ === 'prijem' && jeDnes(p.cas)).sort((a, b) => String(b.cas).localeCompare(String(a.cas)))[0];
 const otvoreneUlohy = () => Object.values(V.ul).filter(u => u.stav === 'nova');
 const mojeUlohy = () => otvoreneUlohy().filter(u => !u.pre || u.pre === C.meno);
 
@@ -914,8 +928,9 @@ TABS.prehlad = {nazov:'Prehľad',
     for (let i = 0; i < 7; i++) dni.push(denIso(Date.now() - i * 864e5));
     const poh = Object.values(V.poh), ser = Object.values(V.ser);
     const c = (arr, d, f) => arr.filter(x => denIso(x.cas) === d && f(x)).length || '';
+    const navyse = zvozyNavyse(poh);
     $('#pAkt').innerHTML = `<table><tr><th>Deň</th><th class="r">Výdaje</th><th class="r">Zvozy</th><th class="r">Sanitácie</th><th class="r">Opravy</th><th class="r">Návrhy na vyr.</th></tr>
-      ${dni.map(d => `<tr><td>${esc(fmtD(d))}</td><td class="r">${c(poh, d, naozajVydaj)}</td><td class="r">${c(poh, d, x => x.typ === 'prijem')}</td><td class="r">${c(ser, d, x => x.typ === 'sanitacia')}</td><td class="r">${c(ser, d, x => x.typ === 'oprava')}</td><td class="r">${c(ser, d, x => x.typ === 'navrh')}</td></tr>`).join('')}</table>`;
+      ${dni.map(d => `<tr><td>${esc(fmtD(d))}</td><td class="r">${c(poh, d, naozajVydaj)}</td><td class="r">${c(poh, d, x => x.typ === 'prijem' && !navyse[x.id])}</td><td class="r">${c(ser, d, x => x.typ === 'sanitacia')}</td><td class="r">${c(ser, d, x => x.typ === 'oprava')}</td><td class="r">${c(ser, d, x => x.typ === 'navrh')}</td></tr>`).join('')}</table>`;
     if (!$('#vOd').value) { const d = new Date(); const od = new Date(d.getFullYear(), d.getMonth() - 1, 1), po = new Date(d.getFullYear(), d.getMonth(), 0); $('#vOd').value = denIso(od); $('#vDo').value = denIso(po); }
     const nez = (V.poMieste[NEZ] || []).length, navrhZak = Object.values(V.vyd).filter(v => v.navrh && v.stav === 'zakaznik').length;
     const porucha = otvoreneUlohy().filter(u => u.typ === 'porucha').length;
@@ -924,7 +939,7 @@ TABS.prehlad = {nazov:'Prehľad',
       ${p.nezname ? `<button class="item" type="button" data-act="filtrStav" data-stav="nezname"><div class="main"><div class="name">Nezistené</div><div class="sub">Výdajníky bez dokladu (staré nahrávanie) – môžu byť u zákazníkov.</div></div><div class="qty"><div class="n">${p.nezname}</div>ks</div></button>` : ''}
       ${navrhZak ? `<button class="item" type="button" data-act="filtrNavrh"><div class="main"><div class="name">Návrh na vyradenie, ale u zákazníka</div><div class="sub">Poznámka zo SPIN alebo z appky – pri najbližšej návšteve skontrolovať.</div></div><div class="qty"><div class="n">${navrhZak}</div>ks</div></button>` : ''}
       ${porucha ? `<button class="item" type="button" data-act="tab" data-tab="ulohy"><div class="main"><div class="name">Otvorené poruchy u zákazníkov</div><div class="sub">Úlohy typu porucha.</div></div><div class="qty"><div class="n">${porucha}</div></div></button>` : ''}
-      </div>${!nenaj && !nez && !p.nezname && !navrhZak && !porucha ? '<div class="empty-state">Nič na doriešenie.</div>' : ''}`;
+      </div>${!nez && !p.nezname && !navrhZak && !porucha ? '<div class="empty-state">Nič na doriešenie.</div>' : ''}`;
   }
 };
 
@@ -1565,14 +1580,16 @@ function zvozPoloha(st, v){
   const ulozit = st.poloha === st.kam ? 'Uložiť polohu' : 'Uložiť polohu a prevziať';
   // pri úlohe šofér stojí u zákazníka z úlohy – oprava na neho je na jedno ťuknutie
   const tu = zvozUlohaMiesto(st), inyNezUloha = !!tu && tu !== v.miesto;
+  // kus prevzatý dnes je už hotový: hlavná voľba je ďalší kus, nový zápis len výnimočne
+  const uz = naCieli ? zvozDnes(v) : null;
   return `${polohaKarta(v)}
-    ${naCieli ? '<div class="warnbox">Podľa evidencie už je na sklade, kam ho beriete. Ak ste ho prevzali inde, zadajte kde.</div>' : inyNezUloha ? '<div class="warnbox">Podľa evidencie nie je u zákazníka z tejto úlohy.</div>' : ''}
+    ${uz ? `<div class="warnbox"><b>Tento kus je dnes už prevzatý</b> (${esc(fmtCas(uz.cas))}${uz.z ? ' od ' + esc(nazovMiesta(uz.z)) : ''}, ${esc(uz.kto)}). Znova ho nezapisujte, pokračujte ďalším kusom.</div>` : naCieli ? '<div class="warnbox">Podľa evidencie už je na sklade, kam ho beriete. Ak ste ho prevzali inde, zadajte kde.</div>' : inyNezUloha ? '<div class="warnbox">Podľa evidencie nie je u zákazníka z tejto úlohy.</div>' : ''}
     ${st.meni ? `${kamVyber(st, 'poloha', 'Kde výdajník naozaj je')}
         <button class="btn ok big" type="button" data-act="zvozZmen" ${st.poloha && st.poloha !== v.miesto ? '' : 'disabled'}>${ulozit}</button>`
-      : `${inyNezUloha ? `<button class="btn ok big" type="button" data-act="zvozTu">Je tu, u ${esc(nazovMiesta(tu))} – prevziať</button>` : ''}
+      : `${inyNezUloha ? `<button class="btn ${uz ? '' : 'ok big'}" type="button" data-act="zvozTu">Je tu, u ${esc(nazovMiesta(tu))} – prevziať</button>` : ''}
         ${neurcite || naCieli ? '' : `<button class="btn ${inyNezUloha ? '' : 'ok big'}" type="button" data-act="zvozOk">${inyNezUloha ? 'Je tam, ako eviduje systém – prevziať' : 'Áno, je tu – prevziať'}</button>`}
-        <button class="btn ${!inyNezUloha && (neurcite || naCieli) ? 'pri big' : ''}" type="button" data-act="zvozMeni">${inyNezUloha ? 'Je inde – zmeniť polohu' : neurcite || naCieli ? 'Zadať polohu' : 'Nie, je inde – zmeniť polohu'}</button>`}
-    <button class="btn" type="button" data-act="zvozIny">${st.meni ? 'Zrušiť' : 'Iný výdajník'}</button>`;
+        <button class="btn ${!uz && !inyNezUloha && (neurcite || naCieli) ? 'pri big' : ''}" type="button" data-act="zvozMeni">${inyNezUloha ? 'Je inde – zmeniť polohu' : uz ? 'Prevzal som ho znova – zadať polohu' : neurcite || naCieli ? 'Zadať polohu' : 'Nie, je inde – zmeniť polohu'}</button>`}
+    <button class="btn ${uz && !st.meni ? 'pri big' : ''}" type="button" data-act="zvozIny">${st.meni ? 'Zrušiť' : 'Iný výdajník'}</button>`;
 }
 
 /* poloha mobilu (ak ju človek povolí) – pripisuje sa do poznámky presunu a kontroly ako doklad, kde to bolo */
@@ -2812,7 +2829,8 @@ function stiahniVykaz(r, od, po){
   const wb = XLSX.utils.book_new(), z = {};
   const mm = id => miesto(id) || {nazov:id || '—'};
   const zak = id => (z[id] = z[id] || {vydaj:0, prijem:0, sanit:0, oprava:0, porucha:0});
-  for (const p of r.pohyby) { if (naozajVydaj(p)) zak(p.kam).vydaj++; if (p.typ === 'prijem') zak(p.z).prijem++; }
+  const navyse = zvozyNavyse(r.pohyby), pocetNavyse = Object.keys(navyse).length;
+  for (const p of r.pohyby) { if (naozajVydaj(p)) zak(p.kam).vydaj++; if (p.typ === 'prijem' && !navyse[p.id]) zak(p.z).prijem++; }
   for (const s of r.servis) { if (!jeSklad(s.miesto) && s.miesto) { if (s.typ === 'sanitacia') zak(s.miesto).sanit++; if (s.typ === 'oprava') zak(s.miesto).oprava++; if (s.typ === 'porucha') zak(s.miesto).porucha++; } }
   // nájom = naše výdajníky u zákazníka (aj tí, kde sa v období nič nedialo)
   for (const v of Object.values(V.vyd)) if (v.stav === 'zakaznik' && v.miesto) zak(v.miesto);
@@ -2831,7 +2849,10 @@ function stiahniVykaz(r, od, po){
     ['Sanitácie u zákazníkov', sum('sanit'), `${fmtD(od)} – ${fmtD(po)}`],
     ['Opravy u zákazníkov', sum('oprava'), `${fmtD(od)} – ${fmtD(po)}`],
     ['Výjazdy – výdaje', sum('vydaj'), 'doprava'],
-    ['Výjazdy – zvozy', sum('prijem'), 'doprava']], [40,12,50]);
+    ['Výjazdy – zvozy', sum('prijem'), 'doprava' + (pocetNavyse ? ` – nezarátané zvozy navyše: ${pocetNavyse} (hárok Na kontrolu)` : '')]], [40,12,50]);
+  if (pocetNavyse) list(wb, 'Na kontrolu', ['Zvoz navyše (nezarátaný)','Výrobné číslo','Model','Zákazník','Zarátaný zvoz','Kto','Čo s tým'],
+    r.pohyby.filter(p => navyse[p.id]).sort((a, b) => String(a.cas).localeCompare(String(b.cas))).map(p => [fmtCas(p.cas), p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, fmtCas(navyse[p.id].cas), p.kto,
+      'Ten istý kus v ten istý deň bez výdaja medzi zvozmi. Ak to bol naozaj druhý zvoz, treba ho vo faktúre dorátať.']), [18,22,26,34,16,18,60]);
   list(wb, 'Pohyby', ['Dátum a čas','Druh','Výrobné číslo','Model','Odkiaľ','Kam','Dodací list','Kto','Poznámka','Podpísal'],
     r.pohyby.map(p => [fmtCas(p.cas), TYPY_POHYBU[p.typ] || p.typ, p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, mm(p.kam).nazov, p.dl, p.kto, p.pozn, String(p.podpis || '').split('|')[0]]), [16,22,22,26,34,34,12,18,30,20]);
   list(wb, 'Servis', ['Dátum a čas','Druh','Výsledok','Výrobné číslo','Model','Kde','Poznámka','Vymenené súčiastky','Kto'],
