@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "21ccdc534b";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "3bb2a533a5";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1531,6 +1531,7 @@ function vRychly(typ){
         : poleSkladuZvozu(st, 'Prevzaté idú na sklad');
       const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
       return `${kde}
+        ${st.typ === 'vydaj' ? poleVydajPozn(st) : ''}
         <button class="btn pri big" type="button" data-act="rychlySken" ${pripraveny ? '' : 'disabled'}>${svg('qr')}Skenovať výdajníky</button>
         <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="rychlyRucne" ${pripraveny ? '' : 'disabled'}>${st.overuj ? 'Ďalej' : 'Zapísať'}</button></div>
         ${st.zapisane.length ? `<div><b>Zapísané teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : ''}
@@ -1539,6 +1540,9 @@ function vRychly(typ){
     }
   };
 }
+/* poznámka k výdaju (rýchly výdaj aj úloha): pripíše sa ku každému kusu zapísanému po jej vyplnení */
+const poleVydajPozn = st => `<div class="fld"><label>Poznámka k výdaju (nepovinné)</label><input type="text" ${fIn('poznVydaj', st, 'placeholder="napr. poškodený kryt, odovzdané na vrátnici" autocomplete="off"')}><div class="note" style="margin:4px 0 0">Vyplňte pred skenovaním. Platí pre každý ďalší kus, kým ju nezmeníte.</div></div>`;
+const vydajPozn = st => String(st.poznVydaj || '').trim();
 function pohybRychly(st, text){
   const typ = st.typ, r = najdiVyd(text);
   if (!r.length) return {msg:'Nenašiel som: ' + text};
@@ -1549,7 +1553,7 @@ function pohybRychly(st, text){
   if ((typ === 'vydaj') && (v.stav === 'oprava' || v.stav === 'vyradenie')) return {msg:v.vc + ' je ' + STAVY[v.stav].toLowerCase() + ' – nevydávajte ho, vezmite iný kus.'};
   if (st.typ === 'vydaj') {
     if (v.stav === 'zakaznik' && v.miesto === st.miesto) return {msg:v.vc + ' už je u tohto zákazníka.'};
-    const op = {t:'pohyb', vyd:v.id, typ:'vydaj', kam:st.miesto}; zmen(op); st.ids.push(op.id);
+    const op = {t:'pohyb', vyd:v.id, typ:'vydaj', kam:st.miesto, pozn:vydajPozn(st)}; zmen(op); st.ids.push(op.id);
   } else {
     if (SKLADOVE.includes(v.stav) && v.miesto === st.kam) return {msg:v.vc + ' už je na tomto sklade.'};
     const op = {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam}; zmen(op); st.ids.push(op.id); if (!st.miesto && v.stav === 'zakaznik') st.miesto = v.miesto;
@@ -1557,7 +1561,7 @@ function pohybRychly(st, text){
   }
   vibr();
   const msg = (st.typ === 'vydaj' ? 'Vydané: ' : 'Prevzaté: ') + v.vc + ' · ' + v.model + (st.typ === 'vydaj' && v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '') + (st.typ === 'prijem' && v.stav === 'zakaznik' ? ' (od ' + nazovMiesta(v.miesto) + ')' : '');
-  st.zapisane.unshift(msg);
+  st.zapisane.unshift(msg + (st.typ === 'vydaj' && vydajPozn(st) ? ' · ' + vydajPozn(st) : ''));
   return {ok:true, msg};
 }
 
@@ -2064,6 +2068,7 @@ function vKartaUlohy(id){
           ${u.stav === 'hotova' ? `<dt>Hotovo</dt><dd>${esc(fmtCas(u.hotovo))} · ${esc(u.hotovoKto)}${u.hotovoPozn ? ' · ' + esc(u.hotovoPozn) : ''}</dd>` : ''}
           ${u.podpis ? `<dt>Podpis</dt><dd>✍ ${esc(u.podpis.split('|')[0])}${u.podpis.split('|')[1] ? ` · <a href="#" data-act="podpisUkaz" data-pf="${esc(u.podpis.split('|')[1])}">zobraziť</a>` : ' · čaká na odoslanie'}</dd>` : ''}</dl>
         ${otv ? `<div class="card" style="margin:0"><h3>Výdajníky k úlohe</h3>
+          <div style="margin-bottom:12px">${poleVydajPozn(st)}</div>
           <div class="actions two"><button class="btn pri" type="button" data-act="skenUloha" data-typ="vydaj">Vydať – skenovať</button><button class="btn pri" type="button" data-act="skenUloha" data-typ="prijem">Prevziať – skenovať</button></div>
           <div style="margin-top:10px">${poleSkladuZvozu(st, 'Prevzaté idú na sklad')}</div>
           <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="ulohaRucne" data-typ="vydaj">Vydať</button><button class="btn small" type="button" data-act="ulohaRucne" data-typ="prijem">Prevziať</button></div></div>` : ''}
@@ -2647,7 +2652,7 @@ function pohybKUlohe(st, typ, text){
   if ((typ === 'vydaj') && (v.stav === 'oprava' || v.stav === 'vyradenie')) return {msg:v.vc + ' je ' + STAVY[v.stav].toLowerCase() + ' – nevydávajte ho, vezmite iný kus.'};
   if (typ === 'vydaj') {
     if (v.stav === 'zakaznik' && v.miesto === u.miesto) return {msg:v.vc + ' už je u tohto zákazníka.'};
-    zmen({t:'pohyb', vyd:v.id, typ:'vydaj', kam:u.miesto, uloha:u.id});
+    zmen({t:'pohyb', vyd:v.id, typ:'vydaj', kam:u.miesto, uloha:u.id, pozn:vydajPozn(st)});
     vibr(); return {ok:true, msg:'Vydané: ' + v.vc + (v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '')};
   }
   if (!st.kam) return {msg:'Vyberte sklad pre prevzaté výdajníky.'};
