@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "3bb2a533a5";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "4e664f744b";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1331,16 +1331,48 @@ function protokolCanvas(miestoId, pohyby, podpis){
   x.fillStyle = '#f1f4f7'; x.fillRect(90, y - 32, W - 180, 46);
   ['#', 'Výrobné číslo', 'Ev. č.', 'Model', 'Pohyb'].forEach((h, i) => txt(h, st[i] + 8, y, 20, '700', '#333'));
   y += 48;
-  const zoz = pohyby.slice(0, 22);
+  // poznámky k výdaju: rovnaká sa uvedie raz; ak neplatí pre všetky vydané kusy, pred textom sú ich čísla
+  const vydane = pohyby.filter(p => p.typ === 'vydaj'), skupiny = new Map();
+  vydane.forEach(p => {
+    const t = String(p.pozn || '').replace(/\s*\[zapísané neskôr[^\]]*\]/, '').trim(); if (!t) return;
+    if (!skupiny.has(t)) skupiny.set(t, []);
+    skupiny.get(t).push((V.vyd[p.vyd] || {}).ev || jadro(p.vyd || p.vc));
+  });
+  x.font = F(21);
+  const POZN_MAX = 6, sirkaPozn = W - 196, riadkyPozn = [];
+  skupiny.forEach((kusy, t) => {
+    let l = '';
+    for (const s of ((kusy.length < vydane.length ? kusy.join(', ') + ': ' : '') + t).split(/\s+/)) {
+      const n = l ? l + ' ' + s : s;
+      if (l && x.measureText(n).width > sirkaPozn) { riadkyPozn.push(l); l = s; } else l = n;
+    }
+    if (l) riadkyPozn.push(l);
+  });
+  const orezPozn = riadkyPozn.length > POZN_MAX;
+  if (orezPozn) riadkyPozn.length = POZN_MAX;
+  riadkyPozn.forEach((l, i) => {
+    const pokr = orezPozn && i === POZN_MAX - 1 ? '…' : '';
+    while (l && x.measureText(l + pokr).width > sirkaPozn) l = l.slice(0, -1);
+    riadkyPozn[i] = l + pokr;
+  });
+  // podpis musí končiť nad pätou strany: výška riadkov sa prispôsobí počtu kusov a poznámkam
+  const vyskaPozn = riadkyPozn.length ? 30 + riadkyPozn.length * 30 : 0, miesto_ = 842 - vyskaPozn, RIADOK_MIN = 30;
+  const zoz = pohyby.length * RIADOK_MIN <= miesto_ ? pohyby : pohyby.slice(0, Math.floor((miesto_ - 40) / RIADOK_MIN));
+  const riadok = Math.min(42, Math.floor((miesto_ - (zoz.length < pohyby.length ? 40 : 0)) / zoz.length));
   zoz.forEach((p, i) => {
     const v = V.vyd[p.vyd] || {};
     txt(i + 1, st[0] + 8, y, 21); txt(jadro(p.vyd || v.id || p.vc), st[1] + 8, y, 21, '600'); txt(v.ev || '', st[2] + 8, y, 21);
     let mod = String(v.model || ''); x.font = F(21); while (mod && x.measureText(mod).width > 285) mod = mod.slice(0, -1);
     txt(mod, st[3] + 8, y, 21); txt(p.typ === 'vydaj' ? 'vydaný' : p.typ === 'prijem' ? 'prevzatý' : p.typ, st[4] + 8, y, 21);
-    x.strokeStyle = '#e3e7ec'; x.lineWidth = 1; x.beginPath(); x.moveTo(90, y + 14); x.lineTo(W - 90, y + 14); x.stroke();
-    y += 42;
+    const ciara = y + Math.round(riadok / 3);
+    x.strokeStyle = '#e3e7ec'; x.lineWidth = 1; x.beginPath(); x.moveTo(90, ciara); x.lineTo(W - 90, ciara); x.stroke();
+    y += riadok;
   });
   if (pohyby.length > zoz.length) { txt(`… a ďalších ${pohyby.length - zoz.length} ks (úplný zoznam v evidencii)`, 98, y, 20, '400', '#555'); y += 40; }
+  if (riadkyPozn.length) {
+    txt('Poznámka k výdaju', 98, y, 20, '700', '#333'); y += 30;
+    riadkyPozn.forEach(l => { txt(l, 98, y, 21); y += 30; });
+  }
   y = Math.max(y + 40, 1400);
   txt('Za Lucku: ' + (pohyby[0] ? pohyby[0].kto || '' : C.meno), 90, y, 22);
   txt('Za zákazníka: ' + (podpis && podpis.meno ? podpis.meno : ''), 680, y, 22);
@@ -1541,7 +1573,7 @@ function vRychly(typ){
   };
 }
 /* poznámka k výdaju (rýchly výdaj aj úloha): pripíše sa ku každému kusu zapísanému po jej vyplnení */
-const poleVydajPozn = st => `<div class="fld"><label>Poznámka k výdaju (nepovinné)</label><input type="text" ${fIn('poznVydaj', st, 'placeholder="napr. poškodený kryt, odovzdané na vrátnici" autocomplete="off"')}><div class="note" style="margin:4px 0 0">Vyplňte pred skenovaním. Platí pre každý ďalší kus, kým ju nezmeníte.</div></div>`;
+const poleVydajPozn = st => `<div class="fld"><label>Poznámka k výdaju (nepovinné)</label><input type="text" ${fIn('poznVydaj', st, 'placeholder="napr. poškodený kryt, odovzdané na vrátnici" autocomplete="off"')}><div class="note" style="margin:4px 0 0">Vyplňte pred skenovaním. Platí pre každý ďalší kus, kým ju nezmeníte. Uvedie sa aj v protokole pre zákazníka.</div></div>`;
 const vydajPozn = st => String(st.poznVydaj || '').trim();
 function pohybRychly(st, text){
   const typ = st.typ, r = najdiVyd(text);
