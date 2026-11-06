@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "4e664f744b";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fdfdd94299";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -101,6 +101,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .btn.big{min-height:56px;font-size:16px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn.big svg{width:24px;height:24px}
 .btn:disabled{opacity:.5}
+.tel-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+a.btn.tel{display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:inherit}
 .more{width:100%;margin-top:10px;border-style:dashed}
 nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav.bottom .wrap{display:flex;max-width:640px}
@@ -822,10 +824,42 @@ function itemVyd(v, extra){
     <div class="sub viacriadkov">${pill(v.stav)} ${esc(m)}${v.odKedy ? ' · od ' + esc(fmtD(v.odKedy)) : ''}${v.navrh ? ' · <b>návrh na vyradenie</b>' : ''}${v.vlastnik ? ' · zákazníka' : ''}${extra ? ' · ' + extra : ''}</div></div>
     <div class="qty">${esc(san)}</div></button>`;
 }
+/* telefóny zákazníka: pole „telefon“ je voľný text z exportu (viac čísel, klapky, poznámky, e-maily)
+   → samostatné čísla na vytočenie; čo nie je číslo, ostane ako text */
+function telefony(t){
+  const cisla = [], ine = [];
+  String(t || '').replace(/_x000D_/gi, '\n').split(/[\n\r;,]+/).forEach(cast => {
+    cast = cast.trim(); if (!cast) return;
+    const mm = cast.match(/\+?\d[\d \/\-]{6,}\d/);
+    let txt = mm ? mm[0].trim() : '';
+    const rozsah = txt.match(/^(.*\d{3,})\s*-\s*\d{1,3}$/);   // „+421 37 7721 577-9“, „02/49 102 511-512“ = rozsah liniek, volá sa prvé
+    if (rozsah && rozsah[1].replace(/\D/g, '').length >= 9) txt = rozsah[1].trim();
+    const d = txt.replace(/\D/g, '');
+    if (d.length < 9 || d.length > 14) { ine.push(cast); return; }
+    // 00421… = medzinárodné; „002/…“ je preklep za 02; 9 číslic bez nuly = chýba úvodná 0 („2 52922716“)
+    const tel = txt.startsWith('+') ? '+' + d : d.startsWith('00') ? (d.length >= 12 ? '+' + d.slice(2) : '0' + d.slice(2))
+      : /^42[01]\d{9}$/.test(d) ? '+' + d : d.length === 9 && d[0] !== '0' ? '0' + d : d;
+    let pozn = (cast.slice(0, mm.index) + ' ' + cast.slice(mm.index + mm[0].length)).replace(/\s+/g, ' ').trim();
+    if (!/[0-9A-Za-zÀ-ž]/.test(pozn)) pozn = '';
+    if (!cisla.some(c => c.tel === tel)) cisla.push({tel, text:mm[0].trim(), pozn});
+  });
+  return {cisla, ine};
+}
+/* tlačidlá na vytočenie (+ kontaktná osoba a zvyšný text) */
+function telOdkazy(m){
+  if (!m) return '';
+  const {cisla, ine} = telefony(m.telefon);
+  if (!cisla.length && !ine.length && !m.kontakt) return '';
+  return `<div class="tel-row">${m.kontakt ? `<span class="small"><b>${esc(m.kontakt)}</b></span>` : ''}${cisla.map(c => `<a class="btn small tel" href="tel:${esc(c.tel)}">📞 ${esc(c.text)}${c.pozn ? ` <span class="muted">${esc(c.pozn)}</span>` : ''}</a>`).join('')}</div>${ine.length ? `<div class="small muted" style="margin-top:4px;white-space:pre-wrap">${esc(ine.join(', '))}</div>` : ''}`;
+}
+function prvyTel(m){
+  const c = telefony(m && m.telefon).cisla;
+  return c.length ? '📞 ' + c[0].text + (c[0].pozn ? ' ' + c[0].pozn : '') + (c.length > 1 ? ' +' + (c.length - 1) : '') : '';
+}
 function itemMiesto(m){
-  const n = (V.poMieste[m.id] || []).length;
+  const n = (V.poMieste[m.id] || []).length, t = prvyTel(m);
   return `<button class="item${m.cak ? ' cak' : ''}" type="button" data-act="miesto" data-id="${esc(m.id)}">
-    <div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}${m.ico ? ' · IČO ' + esc(m.ico) : ''}</div></div>
+    <div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}${m.ico ? ' · IČO ' + esc(m.ico) : ''}</div>${t ? `<div class="sub">${esc(t)}</div>` : ''}</div>
     <div class="qty"><div class="n">${n}</div>ks</div></button>`;
 }
 function itemUloha(u){
@@ -1558,7 +1592,7 @@ function vRychly(typ){
       if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
       const m = miesto(st.miesto);
       const kde = st.typ === 'vydaj'
-        ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>`
+        ? `<div class="fld"><label>Zákazník</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))} · teraz ${(V.poMieste[m.id] || []).filter(v => v.stav === 'zakaznik').length} ks</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto">Zmeniť</button></div>${telOdkazy(m) ? `<div style="margin-top:6px">${telOdkazy(m)}</div>` : ''}`
           : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="miesto" style="width:100%">Vybrať zákazníka</button>'}</div>`
         : poleSkladuZvozu(st, 'Prevzaté idú na sklad');
       const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
@@ -1685,7 +1719,8 @@ function polohaKarta(v){
   return `<div class="card" style="margin:0"><div class="small muted">${esc(v.model || '')} ${pill(v.stav)}</div>
           <div class="small muted" style="margin-top:10px">Poloha podľa evidencie</div>
           <div style="font-size:1.25em;font-weight:700;margin-top:2px">${esc(m ? menoMiesta(m) : 'Poloha nie je známa')}</div>
-          ${adresa ? `<div class="small muted">${esc(adresa)}</div>` : ''}${v.odKedy ? `<div class="small muted">od ${esc(fmtD(v.odKedy))}</div>` : ''}</div>`;
+          ${adresa ? `<div class="small muted">${esc(adresa)}</div>` : ''}${v.odKedy ? `<div class="small muted">od ${esc(fmtD(v.odKedy))}</div>` : ''}
+          ${m && !jeSklad(m.id) && telOdkazy(m) ? `<div style="margin-top:8px">${telOdkazy(m)}</div>` : ''}</div>`;
 }
 
 /* KONTROLA POLOHY: naskenovať alebo napísať číslo → appka ukáže polohu z evidencie → potvrdiť alebo zmeniť na inú.
@@ -2043,8 +2078,7 @@ function vKartaMiesta(id){
           ${m.typ !== 'sklad' ? `<dt>Adresa</dt><dd>${esc(adr) || '—'}${adr ? ` · <a href="${MAPY}${encodeURIComponent(m.nazov + ', ' + adr)}" target="_blank" rel="noopener">mapa</a>` : ''}</dd>
           <dt>IČO</dt><dd>${esc(m.ico) || '—'}</dd>
           ${m.fakt ? `<dt>Fakturácia</dt><dd>${esc(m.fakt)}${m.faktIco ? ', IČO ' + esc(m.faktIco) : ''}${m.faktAdresa ? '<br>' + esc(m.faktAdresa) : ''}</dd>` : ''}` : ''}
-          <dt>Kontakt</dt><dd>${esc(m.kontakt) || '—'}</dd>
-          <dt>Telefón</dt><dd>${m.telefon ? `<a href="tel:${esc(m.telefon.replace(/\s/g, ''))}">${esc(m.telefon)}</a>` : '—'}</dd>
+          <dt>Kontakt</dt><dd>${telOdkazy(m) || '—'}</dd>
           ${m.email ? `<dt>E-mail</dt><dd><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></dd>` : ''}
           ${m.pozn ? `<dt>Poznámka</dt><dd style="white-space:pre-wrap">${esc(m.pozn)}</dd>` : ''}
           <dt>Kód vo SPIN</dt><dd class="mono">${esc(m.id)}</dd>
@@ -2093,7 +2127,7 @@ function vKartaUlohy(id){
       return `${u.popis ? `<div class="card" style="margin:0;white-space:pre-wrap">${esc(u.popis)}</div>` : ''}
         <dl class="dl"><dt>Zákazník</dt><dd><a href="#" data-act="miesto" data-id="${esc(m.id)}">${esc(menoMiesta(m))}</a>${firmaMiesta(m) ? '<br>' + esc(firmaMiesta(m)) : ''}</dd>
           <dt>Adresa</dt><dd>${esc(adr) || '—'}${adr ? ` · <a href="${MAPY}${encodeURIComponent(m.nazov + ', ' + adr)}" target="_blank" rel="noopener">navigovať</a>` : ''}</dd>
-          ${m.kontakt || m.telefon ? `<dt>Kontakt</dt><dd>${esc(m.kontakt || '')} ${m.telefon ? `<a href="tel:${esc(String(m.telefon).replace(/\s/g, ''))}">${esc(m.telefon)}</a>` : ''}</dd>` : ''}
+          ${m.kontakt || m.telefon ? `<dt>Kontakt</dt><dd>${telOdkazy(m)}</dd>` : ''}
           ${m.pozn ? `<dt>Poznámka</dt><dd>${esc(m.pozn)}</dd>` : ''}
           <dt>Počet</dt><dd>${u.pocet ? esc(u.pocet) + ' ks' : '—'}</dd>
           <dt>Teraz u zákazníka</dt><dd>${tam.filter(v => v.stav === 'zakaznik').length} ks</dd>
