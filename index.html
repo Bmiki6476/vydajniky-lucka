@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9d7da010e2";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "f1431292a2";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1166,6 +1166,7 @@ TABS.domov = {nazov:'Domov',
       diely: tile('diely', 'Súčiastky', SRV.maDiely ? (diellMalo() ? diellMalo() + ' dochádza' : 'sklad dielov') : 'sklad dielov', 'data-act="tab" data-tab="diely"'),
       servis: tile('servis', 'Servis', 'sanitácia, oprava, revízia', 'data-act="tab" data-tab="servis"'),
       sanitacia: tile('sanitacia', 'Sanitácia', caka + ' čaká na sanitáciu', 'data-act="tab" data-tab="sanitacia"'),
+      pridajSanit: tile('sanitacia', 'Pridať sanitáciu', 'skenovať + zákazník, zaráta sa mu', 'data-act="pridajSanit"'),
       miesta: tile('miesta', 'Zákazníci', 'kontakty a výdajníky', 'data-act="tab" data-tab="miesta"'),
       novyZak: tile('miesta', 'Pridať zákazníka', 'nové odberné miesto', 'data-act="noveMiesto" data-typ="zakaznik"'),
       hladaj: tile('hladaj', 'Hľadať výdajník', 'číslo, model, zákazník', 'data-act="tab" data-tab="hladaj"'),
@@ -1174,8 +1175,8 @@ TABS.domov = {nazov:'Domov',
       viac: tile('nastav', jeAdmin() ? 'Správa a nastavenia' : 'Nastavenia', 'sklad, synchronizácia', 'data-act="tab" data-tab="viac"')
     };
     // referentka a správca majú všetky dlaždice
-    const vsetky = ['prehlad','ulohy','vydaj','zvoz','presun','kontrola','vydajniky','miesta','novyZak','servis','sanitacia','diely','hladaj','viac'];
-    const poradie = {sofer:['ulohy','vydaj','zvoz','presun','kontrola','miesta','hladaj','viac'], sanitar:['servis','sanitacia','zvoz','presun','kontrola','vydajniky','diely','hladaj','viac'],
+    const vsetky = ['prehlad','ulohy','vydaj','zvoz','presun','kontrola','vydajniky','miesta','novyZak','servis','sanitacia','pridajSanit','diely','hladaj','viac'];
+    const poradie = {sofer:['ulohy','vydaj','zvoz','presun','kontrola','miesta','hladaj','viac'], sanitar:['servis','sanitacia','pridajSanit','zvoz','presun','kontrola','vydajniky','diely','hladaj','viac'],
       referentka:vsetky, admin:vsetky}[r] || ['hladaj'];
     return `<div class="hello"><h2>${esc(pozdrav)}, ${esc(String(C.meno || '').split(' ')[0])}</h2><div class="s">${esc(ROLY[r] || '')}${mojSklad() ? ' · ' + esc(nazovMiesta(mojSklad())) : ''} · ${esc(new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'numeric'}))}</div></div>
       ${instalKarta()}<div class="tiles">${poradie.map(k => T[k]).join('')}</div>
@@ -1767,6 +1768,56 @@ function vKontrola(){
         <p class="note" style="margin:0">${gpsNota(st)}</p>`;
     }
   };
+}
+/* PRIDAŤ SANITÁCIU (9. 11. 2026): naskenuje sa výdajník, vyberie zákazník a jemu sa vo výkaze zaráta sanitácia.
+   Zapíše sa ako servis „sanitácia“ s popisom „[Pre zákazníka] <id miesta> · poznámka“ (server bez zmeny, druh ≤ 30 znakov). */
+const PRE_ZAK = 'Pre zákazníka';
+const sanitPreZak = s => s.typ === 'sanitacia' && rozdelPopis(s).druh === PRE_ZAK ? rozdelPopis(s).popis.split(' · ')[0].trim() : '';
+/** Komu sa sanitácia asi zaráta: kde je u zákazníka, inak vlastník, inak posledný zákazník, od ktorého sa kus zvážal. */
+function navrhZakSanit(v){
+  if (v.stav === 'zakaznik' && v.miesto && !jeSklad(v.miesto)) return v.miesto;
+  if (v.vlastnik) { const m = Object.values(V.mie).find(m => m.typ !== 'sklad' && m.nazov === v.vlastnik && m.zmazane !== 'áno'); if (m) return m.id; }
+  const p = Object.values(V.poh).filter(p => p.vyd === v.id && p.typ === 'prijem' && p.z && !jeSklad(p.z)).sort((a, b) => String(b.cas).localeCompare(String(a.cas)))[0];
+  return p ? p.z : '';
+}
+/** Už zarátaná sanitácia toho istého kusu pre toho istého zákazníka za posledných 30 dní (zvoz na sanitáciu alebo pridaná). */
+function sanitUzZaratana(v, zak){
+  const hr = new Date(Date.now() - 30 * 864e5).toISOString();
+  const z = Object.values(V.poh).filter(p => p.vyd === v.id && p.typ === 'prijem' && p.z === zak && String(p.cas) >= hr && (dovodZvozu(p) === 'sanitacia' || (!dovodZvozu(p) && v.vlastnik)));
+  const s = Object.values(V.ser).filter(x => x.vyd === v.id && sanitPreZak(x) === zak && String(x.cas) >= hr);
+  return z.concat(s).sort((a, b) => String(b.cas).localeCompare(String(a.cas)))[0];
+}
+function vPridajSanit(){
+  return {ziva:true, st:{id:'', vc:'', zak:'', pozn:'', zapisane:[]},
+    hlavicka: st => ({nazov:'Pridať sanitáciu', sub: st.id ? `<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span>` : 'naskenujte výdajník a vyberte zákazníka'}),
+    telo(st){
+      const v = V.vyd[st.id];
+      const hotove = st.zapisane.length ? `<div><b>Zarátané teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : '';
+      if (!v) return `<button class="btn pri big" type="button" data-act="psSken">${svg('qr')}Skenovať výdajník</button>
+        <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="psRucne">Ďalej</button></div>
+        ${hotove}
+        <p class="note" style="margin:0">Sanitácia sa zaráta vybranému zákazníkovi vo výkaze (hárok Sanitácie – rozpis a Pre STN). Použite, keď sanitácia nebola zarátaná zvozom – napr. sanitácia priamo u zákazníka alebo vlastný výdajník zákazníka.</p>`;
+      const m = miesto(st.zak), uz = st.zak ? sanitUzZaratana(v, st.zak) : null;
+      return `${polohaKarta(v)}
+        ${v.stav === 'vyradeny' ? '<div class="warnbox">Výdajník je VYRADENÝ.</div>' : ''}
+        <div class="fld"><label>Zákazník, ktorému sa sanitácia zaráta</label>${m ? `<div class="item"><div class="main"><div class="name viacriadkov">${esc(menoMiesta(m))}</div><div class="sub">${esc(adresaMiesta(m))}</div></div><button class="btn small" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="zak">Zmeniť</button></div>`
+          : '<button class="btn pri" type="button" data-act="vyberMiesto" data-typ="zakaznik" data-pole="zak" style="width:100%">Vybrať zákazníka</button>'}</div>
+        ${uz ? `<div class="warnbox">Tomuto zákazníkovi už je sanitácia tohto kusu zarátaná (${esc(fmtCas(uz.cas))}, ${esc(uz.kto)}${uz.typ === 'prijem' ? ', pri zvoze' : ''}). Druhýkrát ju zapisujte, len ak bola naozaj ďalšia sanitácia.</div>` : ''}
+        <div class="fld"><label>Poznámka (nepovinné)</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. sanitácia priamo u zákazníka" autocomplete="off"')}></div>
+        <button class="btn ok big" type="button" data-act="psOk" ${st.zak && v.stav !== 'vyradeny' ? '' : 'disabled'}>Zarátať sanitáciu</button>
+        <button class="btn" type="button" data-act="psIny">Iný výdajník</button>
+        ${hotove}
+        <p class="note" style="margin:0">${v.stav === 'zakaznik' ? 'Výdajník ostáva u zákazníka.' : 'Výdajník sa zároveň označí ako pripravený (vysanitovaný).'}</p>`;
+    }
+  };
+}
+function psNajdi(st, text){
+  const t = String(text || '').trim(), r = najdiVyd(t);
+  if (!r.length) return {msg:'Nenašiel som: ' + t + ' – nie je v evidencii, dajte vedieť referentke.'};
+  if (r.length > 1) return {msg:'Viac zhôd pre ' + t + ' – napíšte celé číslo.'};
+  vibr();
+  Object.assign(st, {id:r[0].id, vc:'', zak: navrhZakSanit(r[0]) || st.zak, pozn:''});
+  return {ok:true};
 }
 function kontrolaNajdi(st, text){
   const t = String(text || '').trim(), r = najdiVyd(t);
@@ -2379,6 +2430,18 @@ const ACT = {
   kontrola(){ const o = vKontrola(); otvor(o); gpsZisti(o.st); },
   kontrolaSken(){ const st = vrch().st; spustiSken({rezim:'kontrola', text:'Naskenujte QR kód výdajníka', kod: t => { const r = kontrolaNajdi(st, t); if (r.ok) { zastavSken(); renderModal(); } return r; }}); },
   kontrolaRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = kontrolaNajdi(st, st.vc); if (r.msg) toast(r.msg, 3000); renderModal(); },
+  pridajSanit(){ otvor(vPridajSanit()); },
+  psSken(){ const st = vrch().st; spustiSken({rezim:'pridajSanit', text:'Naskenujte QR kód výdajníka', kod: t => { const r = psNajdi(st, t); if (r.ok) { zastavSken(); renderModal(); } return r; }}); },
+  psRucne(){ const st = vrch().st; if (!String(st.vc || '').trim()) return; const r = psNajdi(st, st.vc); if (r.msg) toast(r.msg, 3000); renderModal(); },
+  psOk(){
+    const st = vrch().st, v = V.vyd[st.id]; if (!v || !st.zak) return;
+    const pozn = String(st.pozn || '').trim();
+    zmen({t:'servis', vyd:v.id, typ:'sanitacia', vysledok:'kompletná', popis:'[' + PRE_ZAK + '] ' + st.zak + (pozn ? ' · ' + pozn : '')});
+    vibr(); toast('Sanitácia zarátaná: ' + nazovMiesta(st.zak), 3000);
+    st.zapisane.unshift(v.vc + ' → ' + nazovMiesta(st.zak));
+    Object.assign(st, {id:'', vc:'', pozn:''}); renderModal();
+  },
+  psIny(){ Object.assign(vrch().st, {id:'', vc:'', pozn:''}); renderModal(); },
   kontrolaOk(){
     const st = vrch().st, v = V.vyd[st.id]; if (!v) return;
     zmen({t:'pohyb', vyd:v.id, typ:'kontrola', kam:v.miesto, pozn:['Kontrola polohy – potvrdené', st.gps].filter(Boolean).join(' · ')});
@@ -2951,8 +3014,16 @@ function sanitacieFiriem(r){
     }
     out.push({cas:p.cas, zak:p.z, vyd:p.vyd, vc:p.vc, vlast, dovod: d ? DOVOD_TAG[d] : '(nezadaný)', vys, rata, kto:p.kto, pozn:String(p.pozn || '').replace(DOVOD_RE, '')});
   }
+  // „Pridať sanitáciu“: zaráta sa vybranému zákazníkovi; ak tomu istému už bola zarátaná pri zvoze / pridaná do 30 dní, ide na posúdenie
   for (const s of r.servis) {
-    if (s.typ !== 'sanitacia' || zvezene[s.vyd]) continue;
+    const zak = sanitPreZak(s); if (!zak) continue;
+    const predtym = out.find(x => x.rata && x.vyd === s.vyd && x.zak === zak && x.cas <= s.cas && dni(x.cas, s.cas) <= 30);
+    zvezene[s.vyd] = 1;
+    out.push({cas:s.cas, zak, vyd:s.vyd, vc:s.vc, vlast: !!vl(s.vyd), dovod:'(pridaná sanitácia)', rata: !predtym, kto:s.kto, pozn:rozdelPopis(s).popis.split(' · ').slice(1).join(' · '),
+      vys: predtym ? 'na posúdenie – pridaná sanitácia, ale tomuto zákazníkovi už bola zarátaná ' + fmtD(predtym.cas) : 'sanitácia – pridaná ručne (Pridať sanitáciu)'});
+  }
+  for (const s of r.servis) {
+    if (s.typ !== 'sanitacia' || zvezene[s.vyd] || sanitPreZak(s)) continue;
     // náš kus so sanitáciou zapísanou u zákazníka: buď sanitácia na mieste, alebo bol už u nás a poloha nesedela (372/24, 9. 11.)
     if (!vl(s.vyd)) { if (jeZak(s.miesto)) out.push({cas:s.cas, zak:s.miesto, vyd:s.vyd, vc:s.vc, vlast:false, dovod:'(bez zvozu)', vys:'na posúdenie – sanitácia zapísaná u zákazníka (na mieste, alebo kus bol už u nás)', rata:false, kto:s.kto, pozn:''}); continue; }
     const vratene = r.pohyby.find(q => q.vyd === s.vyd && naozajVydaj(q) && q.cas >= s.cas);
