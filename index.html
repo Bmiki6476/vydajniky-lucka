@@ -16,7 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Výdajníky">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "fdfdd94299";</script>
+<script>window.API_URL = "https://script.google.com/macros/s/AKfycbzd7_89-ahLDm7Ql-0kzuG214e7HrpCCY4nPKFrbOxS4bhViOuZRNAdTvw6Op3Bu1c/exec"; window.WEB_VERZIA = "9d7da010e2";</script>
 <script>
 // Android Chrome: ponuka na inštaláciu príde skoro – odložiť ju pre tlačidlo „Pridať na plochu“
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__instal = e; });
@@ -1586,7 +1586,8 @@ function pridajDiel(n){
 
 /* RÝCHLY VÝDAJ / ZVOZ bez úlohy: zákazník (pri výdaji) alebo sklad (pri zvoze) + skenovanie viacerých kusov */
 function vRychly(typ){
-  return {ziva:true, st:{typ, miesto:'', kam: typ === 'prijem' ? kamZvozu() : mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
+  return {ziva:true, st:{typ, miesto:'', kam: typ === 'prijem' ? kamZvozu() : mojSklad(), vc:'', zapisane:[], ids:[], overuj: typ === 'prijem' && rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false, dovod:'sanitacia', poruchaText:''},
+    zmena(f){ if (f === 'dovod') renderModal(); },
     hlavicka: st => ({nazov: st.typ === 'vydaj' ? 'Výdaj zákazníkovi' : rola() === 'sanitar' ? 'Príjem na sklad' : 'Zvoz od zákazníka', sub: st.overuj && V.vyd[st.kus] ? `<span class="mono">${esc(V.vyd[st.kus].vc)}</span>` : 'naskenujte každý kus'}),
     telo(st){
       if (st.overuj && V.vyd[st.kus]) return zvozPoloha(st, V.vyd[st.kus]);
@@ -1597,7 +1598,7 @@ function vRychly(typ){
         : poleSkladuZvozu(st, 'Prevzaté idú na sklad');
       const pripraveny = st.typ === 'vydaj' ? !!st.miesto : !!st.kam;
       return `${kde}
-        ${st.typ === 'vydaj' ? poleVydajPozn(st) : ''}
+        ${st.typ === 'vydaj' ? poleVydajPozn(st) : poleDovodZvozu(st)}
         <button class="btn pri big" type="button" data-act="rychlySken" ${pripraveny ? '' : 'disabled'}>${svg('qr')}Skenovať výdajníky</button>
         <div class="row" style="flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="rychlyRucne" ${pripraveny ? '' : 'disabled'}>${st.overuj ? 'Ďalej' : 'Zapísať'}</button></div>
         ${st.zapisane.length ? `<div><b>Zapísané teraz (${st.zapisane.length})</b><div class="rychly-list" style="margin-top:8px">${st.zapisane.map(x => `<div class="hrow"><div class="t">${esc(x)}</div></div>`).join('')}</div></div>` : ''}
@@ -1609,6 +1610,23 @@ function vRychly(typ){
 /* poznámka k výdaju (rýchly výdaj aj úloha): pripíše sa ku každému kusu zapísanému po jej vyplnení */
 const poleVydajPozn = st => `<div class="fld"><label>Poznámka k výdaju (nepovinné)</label><input type="text" ${fIn('poznVydaj', st, 'placeholder="napr. poškodený kryt, odovzdané na vrátnici" autocomplete="off"')}><div class="note" style="margin:4px 0 0">Vyplňte pred skenovaním. Platí pre každý ďalší kus, kým ju nezmeníte. Uvedie sa aj v protokole pre zákazníka.</div></div>`;
 const vydajPozn = st => String(st.poznVydaj || '').trim();
+/* DÔVOD ZVOZU (9. 11. 2026): podľa neho výkaz ráta sanitácie pre firmy. Ukladá sa ako začiatok poznámky „[Sanitácia] …“ (server bez zmeny).
+   Predvolená je sanitácia; porucha platí len pre jeden kus (potom sa vráti na sanitáciu) a zapíše aj hlásenie poruchy. */
+const DOVODY_ZVOZU = [['sanitacia', 'Sanitácia / výmena'], ['porucha', 'Porucha – výdajník je pokazený'], ['ukoncenie', 'Ukončenie / zrušenie prevádzky'], ['sezona', 'Sezóna / dočasne stiahnutý'], ['ine', 'Iné (presun, nadbytočný kus…)']];
+const DOVOD_TAG = {sanitacia:'Sanitácia', porucha:'Porucha', ukoncenie:'Ukončenie', sezona:'Sezóna', ine:'Iné'};
+const DOVOD_RE = /^\[(Sanitácia|Porucha|Ukončenie|Sezóna|Iné)\]\s*/;
+const dovodZvozu = p => { const m = DOVOD_RE.exec(p.pozn || ''); return m ? Object.keys(DOVOD_TAG).find(k => DOVOD_TAG[k] === m[1]) : ''; };
+const poleDovodZvozu = st => `<div class="fld"><label>Dôvod zvozu</label>${fSel('dovod', st, DOVODY_ZVOZU)}
+  ${st.dovod === 'porucha' ? `<input type="text" style="margin-top:6px" ${fIn('poruchaText', st, 'placeholder="Čo je pokazené (napr. tečie ventil)" autocomplete="off"')}>` : ''}
+  <div class="note" style="margin:4px 0 0">${st.dovod === 'porucha' ? 'Porucha platí len pre najbližší kus, potom sa dôvod vráti na sanitáciu.' : 'Platí pre ďalšie kusy, kým ho nezmeníte. Vlastný výdajník zákazníka = vždy sanitácia.'}</div></div>`;
+/** Zapíše zvoz s dôvodom; pri poruche aj hlásenie poruchy a dôvod sa vráti na sanitáciu. Vráti text dôvodu do hlásenia. */
+function zmenZvoz(st, op){
+  const d = DOVOD_TAG[st.dovod] ? st.dovod : 'sanitacia', txt = String(st.poruchaText || '').trim();
+  op.pozn = '[' + DOVOD_TAG[d] + ']' + (d === 'porucha' && txt ? ' ' + txt : '') + (op.pozn ? ' ' + op.pozn : '');
+  zmen(op);
+  if (d === 'porucha') { zmen({t:'servis', vyd:op.vyd, typ:'porucha', popis: txt || 'pokazený pri zvoze'}); st.dovod = 'sanitacia'; st.poruchaText = ''; }
+  return DOVOD_TAG[d];
+}
 function pohybRychly(st, text){
   const typ = st.typ, r = najdiVyd(text);
   if (!r.length) return {msg:'Nenašiel som: ' + text};
@@ -1622,11 +1640,12 @@ function pohybRychly(st, text){
     const op = {t:'pohyb', vyd:v.id, typ:'vydaj', kam:st.miesto, pozn:vydajPozn(st)}; zmen(op); st.ids.push(op.id);
   } else {
     if (SKLADOVE.includes(v.stav) && v.miesto === st.kam) return {msg:v.vc + ' už je na tomto sklade.'};
-    const op = {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam}; zmen(op); st.ids.push(op.id); if (!st.miesto && v.stav === 'zakaznik') st.miesto = v.miesto;
+    const od = v.stav === 'zakaznik' ? v.miesto : '';
+    const op = {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam}; var dov = zmenZvoz(st, op); st.ids.push(op.id); if (!st.miesto && od) st.miesto = od;
     if (!mojSklad()) { C.sklad = st.kam; ulozConf(); }
   }
   vibr();
-  const msg = (st.typ === 'vydaj' ? 'Vydané: ' : 'Prevzaté: ') + v.vc + ' · ' + v.model + (st.typ === 'vydaj' && v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '') + (st.typ === 'prijem' && v.stav === 'zakaznik' ? ' (od ' + nazovMiesta(v.miesto) + ')' : '');
+  const msg = (st.typ === 'vydaj' ? 'Vydané: ' : 'Prevzaté: ') + v.vc + ' · ' + v.model + (st.typ === 'vydaj' && v.stav === 'spinavy' ? ' (pozor – bol na sanitáciu)' : '') + (st.typ === 'prijem' && v.stav === 'zakaznik' ? ' (od ' + nazovMiesta(v.miesto) + ')' : '') + (st.typ === 'prijem' ? ' · ' + dov : '');
   st.zapisane.unshift(msg + (st.typ === 'vydaj' && vydajPozn(st) ? ' · ' + vydajPozn(st) : ''));
   return {ok:true, msg};
 }
@@ -1653,6 +1672,7 @@ function zvozPoloha(st, v){
   // kus prevzatý dnes je už hotový: hlavná voľba je ďalší kus, nový zápis len výnimočne
   const uz = naCieli ? zvozDnes(v) : null;
   return `${polohaKarta(v)}
+    ${uz ? '' : poleDovodZvozu(st)}
     ${uz ? `<div class="warnbox"><b>Tento kus je dnes už prevzatý</b> (${esc(fmtCas(uz.cas))}${uz.z ? ' od ' + esc(nazovMiesta(uz.z)) : ''}, ${esc(uz.kto)}). Znova ho nezapisujte, pokračujte ďalším kusom.</div>` : naCieli ? '<div class="warnbox">Podľa evidencie už je na sklade, kam ho beriete. Ak ste ho prevzali inde, zadajte kde.</div>' : inyNezUloha ? '<div class="warnbox">Podľa evidencie nie je u zákazníka z tejto úlohy.</div>' : ''}
     ${st.meni ? `${kamVyber(st, 'poloha', 'Kde výdajník naozaj je')}
         <button class="btn ok big" type="button" data-act="zvozZmen" ${st.poloha && st.poloha !== v.miesto ? '' : 'disabled'}>${ulozit}</button>`
@@ -1927,10 +1947,12 @@ function vKartaVyd(id){
 /* výdaj / prevzatie / presun */
 function vFormPohyb(id, typ, preset){
   const v0 = V.vyd[id];
-  const st = Object.assign({id, typ, kam: typ === 'vydaj' ? '' : typ === 'prijem' ? kamZvozu() : '', dl:'', pozn:'', porucha:false}, preset || {});
+  const st = Object.assign({id, typ, kam: typ === 'vydaj' ? '' : typ === 'prijem' ? kamZvozu() : '', dl:'', pozn:'', porucha:false, dovod:'sanitacia', poruchaText:''}, preset || {});
+  if (st.porucha) st.dovod = 'porucha';
   if (typ === 'prijem' && skladZvozu()) st.kam = skladZvozu();
   if (typ === 'presun' && v0 && st.kam === v0.miesto) st.kam = '';
   return {st,
+    zmena(f){ if (f === 'dovod') renderModal(); },
     hlavicka: st => ({nazov:esc(TYPY_POHYBU[st.typ]), sub:`<span class="mono">${esc((V.vyd[st.id] || {}).vc || st.id)}</span> · ${esc((V.vyd[st.id] || {}).model || '')}`}),
     telo(st){
       const v = V.vyd[st.id], m = miesto(st.kam);
@@ -1943,15 +1965,16 @@ function vFormPohyb(id, typ, preset){
       return `${varov}<div class="note">Teraz: ${pill(v.stav)} ${esc(nazovMiesta(v.miesto))}</div>${kde}
         <div class="fld"><label>Číslo dodacieho listu (ak je)</label><input type="text" ${fIn('dl', st)}></div>
         <div class="fld"><label>Poznámka</label><input type="text" ${fIn('pozn', st, 'placeholder="napr. poškodený kryt, zákazník nebol…"')}></div>
-        ${st.typ === 'prijem' ? `<label class="checkrow"><input type="checkbox" data-f="porucha" ${st.porucha ? 'checked' : ''}><span>Výdajník je pokazený – zapíše sa aj hlásenie poruchy (popíšte v poznámke)</span></label>` : ''}
+        ${st.typ === 'prijem' ? poleDovodZvozu(st) : ''}
         <button class="btn pri" type="button" data-act="ulozPohyb">Uložiť</button>`;
     }
   };
 }
 function ulozPohyb(st){
   if (!st.kam) return toast(st.typ === 'vydaj' ? 'Vyberte zákazníka.' : 'Vyberte sklad.');
-  zmen({t:'pohyb', vyd:st.id, typ:st.typ, kam:st.kam, dl:st.dl.trim(), pozn:st.pozn.trim(), uloha:st.uloha || ''});
-  if (st.porucha) zmen({t:'servis', vyd:st.id, typ:'porucha', popis:st.pozn.trim() || 'pokazený pri prevzatí'});
+  const op = {t:'pohyb', vyd:st.id, typ:st.typ, kam:st.kam, dl:st.dl.trim(), pozn:st.pozn.trim(), uloha:st.uloha || ''};
+  if (st.typ === 'prijem') { if (st.dovod === 'porucha' && !String(st.poruchaText || '').trim()) st.poruchaText = st.pozn.trim(); zmenZvoz(st, op); }
+  else zmen(op);
   if (st.typ === 'prijem' && !mojSklad()) { C.sklad = st.kam; ulozConf(); }
   vibr(); toast(TYPY_POHYBU[st.typ] + ' uložený');
   spat();
@@ -2114,7 +2137,9 @@ function vFormMiesto(id, typ){
 
 /* úlohy */
 function vKartaUlohy(id){
-  return {ziva:true, st:{id, vc:'', kam:kamZvozu(), uloha:true, overuj: rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false},
+  return {ziva:true, st:{id, vc:'', kam:kamZvozu(), uloha:true, overuj: rola() !== 'sanitar', kus:'', meni:false, poloha:'', potvrdene:[], zoSkenu:false,
+      dovod: (V.ul[id] || {}).typ === 'porucha' ? 'porucha' : 'sanitacia', poruchaText:''},
+    zmena(f){ if (f === 'dovod') renderModal(); },
     hlavicka(st){ const u = V.ul[st.id] || {}; return {nazov:esc((TYPY_ULOH[u.typ] || 'Úloha') + ' · ' + nazovMiesta(u.miesto)), sub:esc([u.termin ? 'termín ' + fmtD(u.termin) : '', u.pre ? 'pre ' + u.pre : 'ktokoľvek', u.zadal ? 'zadal(a) ' + u.zadal : ''].filter(Boolean).join(' · '))}; },
     telo(st){
       const u = V.ul[st.id]; if (!u) return '<div class="empty-state">Úloha neexistuje.</div>';
@@ -2137,6 +2162,7 @@ function vKartaUlohy(id){
           <div style="margin-bottom:12px">${poleVydajPozn(st)}</div>
           <div class="actions two"><button class="btn pri" type="button" data-act="skenUloha" data-typ="vydaj">Vydať – skenovať</button><button class="btn pri" type="button" data-act="skenUloha" data-typ="prijem">Prevziať – skenovať</button></div>
           <div style="margin-top:10px">${poleSkladuZvozu(st, 'Prevzaté idú na sklad')}</div>
+          <div style="margin-top:10px">${poleDovodZvozu(st)}</div>
           <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input type="text" ${fIn('vc', st, 'placeholder="alebo napíšte číslo" autocomplete="off"')}><button class="btn small" type="button" data-act="ulohaRucne" data-typ="vydaj">Vydať</button><button class="btn small" type="button" data-act="ulohaRucne" data-typ="prijem">Prevziať</button></div></div>` : ''}
         ${poh.length ? `<div><b>Zapísané pohyby (${poh.length})</b><div class="hist" style="margin-top:8px">${poh.map(hrowPohyb).join('')}</div>
           <button class="btn" type="button" data-act="protokolUloha" style="margin-top:8px;width:100%">📄 Protokol pre zákazníka (PDF)</button></div>` : ''}
@@ -2723,9 +2749,10 @@ function pohybKUlohe(st, typ, text){
   }
   if (!st.kam) return {msg:'Vyberte sklad pre prevzaté výdajníky.'};
   const inde = v.stav === 'zakaznik' && v.miesto !== u.miesto;
-  zmen({t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam, uloha:u.id});
+  const bolU = v.miesto;
+  const dov = zmenZvoz(st, {t:'pohyb', vyd:v.id, typ:'prijem', kam:st.kam, uloha:u.id});
   if (!mojSklad()) { C.sklad = st.kam; ulozConf(); }
-  vibr(); return {ok:true, msg:'Prevzaté: ' + v.vc + (inde ? ' (v evidencii bol u ' + nazovMiesta(v.miesto) + ')' : '')};
+  vibr(); return {ok:true, msg:'Prevzaté: ' + v.vc + ' · ' + dov + (inde ? ' (v evidencii bol u ' + nazovMiesta(bolU) + ')' : '')};
 }
 
 /* ---------- skenovanie ---------- */
@@ -2896,31 +2923,78 @@ function stiahniTypy(){
       .map(v => [modelKluc(v.model), v.vc, v.ev, v.model, STAVY[v.stav] || v.stav, (miesto(v.miesto) || {}).nazov || nazovMiesta(v.miesto), v.kto, d10(v.cas)]), [30,22,9,30,18,34,18,12]);
   XLSX.writeFile(wb, `Typy_vydajnikov_karty_${dnes()}.xlsx`);
 }
+/* SANITÁCIE PRE FIRMY (pravidlá používateľa 9. 11. 2026):
+   - zvoz od zákazníka = sanitácia tej firmy, okrem poruchy (→ servis), ukončenia / sezóny / iného dôvodu;
+   - vlastný výdajník zákazníka = sanitácia (stiahne sa a vráti vysanitovaný);
+   - vlastný kus sanitovaný u nás bez zvozu v období sa zaráta vlastníkovi (komu sa vrátil), raz;
+   - zvozy bez dôvodu (pred 10. 11. 2026) sa posúdia podľa okolností, sporné idú „na posúdenie“ a nerátajú sa. */
+function sanitacieFiriem(r){
+  const navyse = zvozyNavyse(r.pohyby), out = [];
+  const jeZak = id => { const m = V.mie[id]; return !!id && (!m || m.typ !== 'sklad'); };
+  const vl = id => (V.vyd[id] || {}).vlastnik || '';
+  const dni = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 864e5;
+  const zvezene = {};
+  for (const p of r.pohyby) {
+    if (p.typ !== 'prijem' || navyse[p.id] || !jeZak(p.z)) continue;
+    zvezene[p.vyd] = 1;
+    const d = dovodZvozu(p), vlast = !!vl(p.vyd);
+    let vys, rata = false;
+    if (d === 'porucha' || (!d && (/porucha|poškod|pokaz|nefunk/i.test(p.pozn || '') || r.servis.some(s => s.vyd === p.vyd && s.typ === 'porucha' && dni(s.cas, p.cas) <= 3)))) vys = 'porucha – ide do servisu, nie sanitácia';
+    else if (d === 'ukoncenie' || d === 'sezona' || d === 'ine') vys = DOVOD_TAG[d] + ' – nie sanitácia';
+    else if (d === 'sanitacia' || vlast) { vys = vlast ? 'sanitácia – vlastný výdajník zákazníka' : 'sanitácia – výmena'; rata = true; }
+    else {
+      const vydaje = r.pohyby.filter(q => naozajVydaj(q) && q.kam === p.z && dni(q.cas, p.cas) <= 7);
+      if (vydaje.some(q => vl(q.vyd))) vys = 'na posúdenie – vrátený vlastný kus zákazníka a zvezený náhradný';
+      else if (vydaje.length) { vys = 'sanitácia – výmena (dovezený iný kus)'; rata = true; }
+      else if (!(V.poMieste[p.z] || []).some(v => v.stav === 'zakaznik')) vys = 'na posúdenie – zákazníkovi nič neostalo (ukončenie / sezóna?)';
+      else vys = 'na posúdenie – bez dôvodu a bez náhrady';
+    }
+    out.push({cas:p.cas, zak:p.z, vyd:p.vyd, vc:p.vc, vlast, dovod: d ? DOVOD_TAG[d] : '(nezadaný)', vys, rata, kto:p.kto, pozn:String(p.pozn || '').replace(DOVOD_RE, '')});
+  }
+  for (const s of r.servis) {
+    if (s.typ !== 'sanitacia' || zvezene[s.vyd]) continue;
+    // náš kus so sanitáciou zapísanou u zákazníka: buď sanitácia na mieste, alebo bol už u nás a poloha nesedela (372/24, 9. 11.)
+    if (!vl(s.vyd)) { if (jeZak(s.miesto)) out.push({cas:s.cas, zak:s.miesto, vyd:s.vyd, vc:s.vc, vlast:false, dovod:'(bez zvozu)', vys:'na posúdenie – sanitácia zapísaná u zákazníka (na mieste, alebo kus bol už u nás)', rata:false, kto:s.kto, pozn:''}); continue; }
+    const vratene = r.pohyby.find(q => q.vyd === s.vyd && naozajVydaj(q) && q.cas >= s.cas);
+    const zak = vratene ? vratene.kam : jeZak(s.miesto) ? s.miesto : '';
+    zvezene[s.vyd] = 1;
+    out.push({cas:s.cas, zak, vyd:s.vyd, vc:s.vc, vlast:true, dovod:'(zvoz nezapísaný)', vys: zak ? 'sanitácia – vlastný výdajník sanitovaný u nás' : 'na posúdenie – vlastný kus sanitovaný u nás, nevieme komu sa vrátil (' + vl(s.vyd) + ')', rata: !!zak, kto:s.kto, pozn:''});
+  }
+  return out.sort((a, b) => String(a.cas).localeCompare(String(b.cas)));
+}
 function stiahniVykaz(r, od, po){
   const wb = XLSX.utils.book_new(), z = {};
   const mm = id => miesto(id) || {nazov:id || '—'};
-  const zak = id => (z[id] = z[id] || {vydaj:0, prijem:0, sanit:0, oprava:0, porucha:0});
+  const zak = id => (z[id] = z[id] || {vydaj:0, prijem:0, sanit:0, oprava:0, porucha:0, sanNase:0, sanVlast:0, posudit:0});
   const navyse = zvozyNavyse(r.pohyby), pocetNavyse = Object.keys(navyse).length;
   for (const p of r.pohyby) { if (naozajVydaj(p)) zak(p.kam).vydaj++; if (p.typ === 'prijem' && !navyse[p.id]) zak(p.z).prijem++; }
-  for (const s of r.servis) { if (!jeSklad(s.miesto) && s.miesto) { if (s.typ === 'sanitacia') zak(s.miesto).sanit++; if (s.typ === 'oprava') zak(s.miesto).oprava++; if (s.typ === 'porucha') zak(s.miesto).porucha++; } }
+  const sanF = sanitacieFiriem(r);
+  for (const x of sanF) { if (!x.zak) continue; if (x.rata) zak(x.zak)[x.vlast ? 'sanVlast' : 'sanNase']++; else if (/^na posúdenie/.test(x.vys)) zak(x.zak).posudit++; }
+  for (const s of r.servis) { if (!jeSklad(s.miesto) && s.miesto) { if (s.typ === 'oprava') zak(s.miesto).oprava++; if (s.typ === 'porucha') zak(s.miesto).porucha++; } }
   // nájom = naše výdajníky u zákazníka (aj tí, kde sa v období nič nedialo)
   for (const v of Object.values(V.vyd)) if (v.stav === 'zakaznik' && v.miesto) zak(v.miesto);
   const najom = id => (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik' && nasVlastnik(v)).length;
   const riadkyZak = Object.entries(z).filter(([id]) => id && !jeSklad(id)).sort((a, b) => mm(a[0]).nazov.localeCompare(mm(b[0]).nazov, 'sk'));
-  list(wb, 'Po zákazníkoch', ['Zákazník','Mesto','IČO','Fakturačná firma','IČO fakt.','Výdaje','Zvozy','Sanitácie u zák.','Opravy u zák.','Poruchy','Teraz u zákazníka','z toho naše (nájom)'],
+  list(wb, 'Po zákazníkoch', ['Zákazník','Odberné miesto','Mesto','IČO','Fakturačná firma','IČO fakt.','Výdaje','Zvozy','Sanitácie spolu','z toho naše','z toho vlastné','Na posúdenie','Opravy u zák.','Poruchy','Teraz u zákazníka','z toho naše (nájom)'],
     riadkyZak.map(([id, x]) => { const m = mm(id);
-      return [m.nazov, m.mesto, m.ico, m.fakt, m.faktIco, x.vydaj, x.prijem, x.sanit, x.oprava, x.porucha, (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik').length, najom(id)]; }),
-    [40,18,11,40,11,8,8,10,10,8,10,12]);
+      return [m.nazov, id, m.mesto, m.ico, m.fakt, m.faktIco, x.vydaj, x.prijem, x.sanNase + x.sanVlast, x.sanNase, x.sanVlast, x.posudit, x.oprava, x.porucha, (V.poMieste[id] || []).filter(v => v.stav === 'zakaznik').length, najom(id)]; }),
+    [40,22,18,11,40,11,8,8,10,9,9,10,10,8,10,12]);
   // dohoda z porady 15. 10. 2026: výdajníky ostávajú majetkom BUDIŠ, zákazníkom fakturuje STN,
   // BUDIŠ fakturuje STN mesačne nájom, sanitácie, servis a dopravu
   const sum = k => riadkyZak.reduce((a, [, x]) => a + x[k], 0);
   list(wb, 'Pre STN (fakturácia)', ['Položka','Množstvo','Poznámka'], [
     ['Nájom – naše výdajníky u zákazníkov', riadkyZak.reduce((a, [id]) => a + najom(id), 0), 'stav ku dňu stiahnutia výkazu, bez zákazníckych a predaných'],
     ['Zákazníkov s nájmom', riadkyZak.filter(([id]) => najom(id)).length, ''],
-    ['Sanitácie u zákazníkov', sum('sanit'), `${fmtD(od)} – ${fmtD(po)}`],
+    ['Sanitácie – naše výdajníky (zvoz na sanitáciu / výmena)', sum('sanNase'), `${fmtD(od)} – ${fmtD(po)}`],
+    ['Sanitácie – vlastné výdajníky zákazníkov', sum('sanVlast'), 'stiahnuté a vrátené vysanitované'],
+    ['Sanitácie spolu', sum('sanNase') + sum('sanVlast'), 'rozpis v hárku Sanitácie – rozpis'],
+    ['Na posúdenie (nezarátané)', sum('posudit'), 'zvozy bez dôvodu a sanitácie zapísané u zákazníka – pozri hárok Sanitácie – rozpis'],
     ['Opravy u zákazníkov', sum('oprava'), `${fmtD(od)} – ${fmtD(po)}`],
     ['Výjazdy – výdaje', sum('vydaj'), 'doprava'],
     ['Výjazdy – zvozy', sum('prijem'), 'doprava' + (pocetNavyse ? ` – nezarátané zvozy navyše: ${pocetNavyse} (hárok Na kontrolu)` : '')]], [40,12,50]);
+  list(wb, 'Sanitácie – rozpis', ['Dátum a čas','Zákazník','Odberné miesto','Výrobné číslo','Model','Náš / vlastný','Dôvod zvozu','Vyhodnotenie','Zarátané','Kto','Poznámka'],
+    sanF.map(x => [fmtCas(x.cas), x.zak ? mm(x.zak).nazov : '—', x.zak, x.vc, (V.vyd[x.vyd] || {}).model || '', x.vlast ? 'vlastný' : 'náš', x.dovod, x.vys, x.rata ? 'áno' : 'nie', x.kto, x.pozn]),
+    [16,36,22,26,24,10,14,52,9,18,30]);
   if (pocetNavyse) list(wb, 'Na kontrolu', ['Zvoz navyše (nezarátaný)','Výrobné číslo','Model','Zákazník','Zarátaný zvoz','Kto','Čo s tým'],
     r.pohyby.filter(p => navyse[p.id]).sort((a, b) => String(a.cas).localeCompare(String(b.cas))).map(p => [fmtCas(p.cas), p.vc, (V.vyd[p.vyd] || {}).model || '', mm(p.z).nazov, fmtCas(navyse[p.id].cas), p.kto,
       'Ten istý kus v ten istý deň bez výdaja medzi zvozmi. Ak to bol naozaj druhý zvoz, treba ho vo faktúre dorátať.']), [18,22,26,34,16,18,60]);
